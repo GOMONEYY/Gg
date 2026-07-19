@@ -224,9 +224,10 @@ def validate_init_data(init_data: str):
 # Common keyboards
 # ------------------------------------------------------------------
 def main_menu_kb():
-    kb = [[InlineKeyboardButton(text="🛍️ Open Store", web_app=WebAppInfo(url=WEBAPP_URL))]] if WEBAPP_URL else []
-    kb.append([InlineKeyboardButton(text="📋 Show products here", callback_data="list_products")])
-    kb.append([InlineKeyboardButton(text="🆘 Support", url=f"https://t.me/{SUPPORT_USERNAME}")])
+    kb = [
+        [InlineKeyboardButton(text="🛍️ Shop", callback_data="list_products")],
+        [InlineKeyboardButton(text="🆘 Support", url=f"https://t.me/{SUPPORT_USERNAME}")],
+    ]
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
 
@@ -244,8 +245,8 @@ def payment_kb(product_id):
 @router.message(CommandStart())
 async def start_handler(message: Message):
     await message.answer(
-        "👋 Welcome to the store!\n\nBrowse products and buy accounts & software codes, paying via:\n"
-        "💵 USDT\n🟡 Binance Pay\n\nTap the button below:",
+        "👋 Welcome to our store!\n\nBrowse products and buy accounts & software codes, paying via:\n"
+        "💵 USDT\n🟡 Binance Pay",
         reply_markup=main_menu_kb(),
     )
 
@@ -264,12 +265,14 @@ async def list_products_cb(callback: CallbackQuery):
         return
     kb = [
         [InlineKeyboardButton(
-            text=f"{p['name']} — {p['price']}$" + ("" if p["available"] > 0 else " (out of stock)"),
+            text=("🔵 " if p["available"] > 0 else "🔴 ")
+            + f"{p['name']} — {p['price']}$"
+            + ("" if p["available"] > 0 else " (out of stock)"),
             callback_data=f"view_product:{p['id']}",
         )]
         for p in products
     ]
-    await callback.message.answer("📋 Choose a product to see details:", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
+    await callback.message.answer("🛍️ Available products:", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
     await callback.answer()
 
 
