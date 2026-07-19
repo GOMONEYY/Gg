@@ -28,7 +28,13 @@
     background: var(--card);
     border-radius: 14px;
     padding: 14px;
+    display: flex;
+    gap: 12px;
   }
+  .card img {
+    width: 64px; height: 64px; border-radius: 12px; object-fit: cover; flex-shrink: 0;
+  }
+  .card-body { flex: 1; min-width: 0; }
   .card h3 { margin: 0 0 4px; font-size: 16px; }
   .card p { margin: 4px 0; color: var(--hint); font-size: 13px; }
   .row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
@@ -58,18 +64,22 @@
     display: block; width: 100%; margin-top: 10px; text-align: left;
   }
   .close-btn { background: transparent; color: var(--hint); text-align: center; width: 100%; margin-top: 14px; }
+  .support-link {
+    display: block; text-align: center; margin-top: 20px; color: var(--hint); font-size: 13px; text-decoration: none;
+  }
 </style>
 </head>
 <body>
   <h1>🛍️ Store</h1>
   <div id="grid" class="grid"></div>
   <div id="empty" class="empty" style="display:none">No products available right now</div>
+  <a class="support-link" href="#" id="supportLink">🆘 Support</a>
 
   <div id="overlay" class="overlay">
     <div class="sheet">
       <h3 id="sheetTitle"></h3>
       <p id="sheetDesc" style="color:var(--hint)"></p>
-      <button class="pay-option" onclick="pay('cryptobot')">💎 Pay with CryptoBot</button>
+      <button class="pay-option" onclick="pay('usdt')">💵 Pay with USDT</button>
       <button class="pay-option" onclick="pay('binance')">🟡 Pay with Binance Pay</button>
       <button class="close-btn" onclick="closeSheet()">Cancel</button>
     </div>
@@ -82,6 +92,11 @@ tg.expand();
 
 let currentProduct = null;
 
+document.getElementById('supportLink').onclick = (e) => {
+  e.preventDefault();
+  tg.openTelegramLink('https://t.me/No111x');
+};
+
 async function loadProducts() {
   const res = await fetch('/api/products');
   const products = await res.json();
@@ -93,12 +108,16 @@ async function loadProducts() {
   products.forEach(p => {
     const card = document.createElement('div');
     card.className = 'card';
+    const img = p.has_image ? `<img src="/image/${p.id}" alt="">` : '';
     card.innerHTML = `
-      <h3>${p.name}</h3>
-      <p>${p.description || ''}</p>
-      <div class="row">
-        <span class="price">${p.price}$</span>
-        <span class="stock">In stock: ${p.available}</span>
+      ${img}
+      <div class="card-body">
+        <h3>${p.name}</h3>
+        <p>${p.description || ''}</p>
+        <div class="row">
+          <span class="price">${p.price}$</span>
+          <span class="stock">In stock: ${p.available}</span>
+        </div>
       </div>
     `;
     if (p.available > 0) {
@@ -107,7 +126,7 @@ async function loadProducts() {
       btn.style.width = '100%';
       btn.textContent = 'Buy now';
       btn.onclick = () => openSheet(p);
-      card.appendChild(btn);
+      card.querySelector('.card-body').appendChild(btn);
     }
     grid.appendChild(card);
   });
@@ -140,27 +159,33 @@ async function pay(method) {
     tg.showAlert(data.error || 'Something went wrong');
     return;
   }
-  if (method === 'cryptobot') {
-    tg.openLink(data.pay_url);
+  let message = '';
+  if (method === 'usdt') {
+    const addrs = data.usdt_addresses;
+    message = 'Send ' + currentProduct.price + ' USDT to:\n';
+    if (addrs.trc20) message += 'TRC20: ' + addrs.trc20 + '\n';
+    if (addrs.bep20) message += 'BEP20: ' + addrs.bep20 + '\n';
+    if (addrs.erc20) message += 'ERC20: ' + addrs.erc20 + '\n';
   } else {
-    tg.showPopup({
-      title: 'Pay with Binance Pay',
-      message: `Transfer ${currentProduct.price}$ to: ${data.binance_id}\n\nAfter transferring, tap Confirm.`,
-      buttons: [
-        { id: 'confirm', type: 'default', text: 'I have paid' },
-        { id: 'cancel', type: 'cancel' }
-      ]
-    }, async (btnId) => {
-      if (btnId === 'confirm') {
-        await fetch('/api/binance-confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData: tg.initData, order_id: data.order_id })
-        });
-        tg.showAlert('Your order was sent for review, it will be delivered within minutes.');
-      }
-    });
+    message = `Transfer ${currentProduct.price}$ to: ${data.binance_id}`;
   }
+  tg.showPopup({
+    title: method === 'usdt' ? 'Pay with USDT' : 'Pay with Binance Pay',
+    message: message + '\n\nAfter paying, tap Confirm.',
+    buttons: [
+      { id: 'confirm', type: 'default', text: 'I have paid' },
+      { id: 'cancel', type: 'cancel' }
+    ]
+  }, async (btnId) => {
+    if (btnId === 'confirm') {
+      await fetch('/api/confirm-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData: tg.initData, order_id: data.order_id })
+      });
+      tg.showAlert('Your order was sent for review, it will be delivered within minutes.');
+    }
+  });
 }
 
 loadProducts();
