@@ -27,13 +27,13 @@ from aiogram.types import (
 )
 
 # ------------------------------------------------------------------
-# الإعدادات (تُقرأ من متغيرات البيئة - لا تكتب أي شيء سري هنا)
+# Settings (read from environment variables - never hardcode secrets here)
 # ------------------------------------------------------------------
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 ADMIN_ID = int(os.environ["ADMIN_ID"])
 CRYPTO_PAY_TOKEN = os.environ.get("CRYPTO_PAY_TOKEN", "")
-BINANCE_PAY_ID = os.environ.get("BINANCE_PAY_ID", "غير محدد بعد")
-WEBAPP_URL = os.environ.get("WEBAPP_URL", "")  # رابط الموقع بعد النشر (https)
+BINANCE_PAY_ID = os.environ.get("BINANCE_PAY_ID", "Not set yet")
+WEBAPP_URL = os.environ.get("WEBAPP_URL", "")  # public https url after deploy
 PORT = int(os.environ.get("PORT", 8080))
 DB_PATH = os.environ.get("DB_PATH", "store.db")
 CRYPTO_API_BASE = "https://pay.crypt.bot/api"
@@ -48,7 +48,7 @@ dp.include_router(router)
 
 
 # ------------------------------------------------------------------
-# قاعدة البيانات (SQLite - ملف واحد بسيط)
+# Database (SQLite - single file, simple)
 # ------------------------------------------------------------------
 def db():
     conn = sqlite3.connect(DB_PATH)
@@ -65,7 +65,7 @@ def init_db():
             name TEXT NOT NULL,
             description TEXT,
             price REAL NOT NULL,
-            category TEXT DEFAULT 'عام',
+            category TEXT DEFAULT 'General',
             active INTEGER DEFAULT 1
         );
         CREATE TABLE IF NOT EXISTS stock (
@@ -92,7 +92,7 @@ def init_db():
 
 
 # ------------------------------------------------------------------
-# أدوات مساعدة لقاعدة البيانات
+# DB helpers
 # ------------------------------------------------------------------
 def list_products():
     conn = db()
@@ -112,7 +112,7 @@ def get_product(pid):
 
 
 def reserve_stock(product_id):
-    """يمسك أول وحدة مخزون متاحة (بدون تسليمها بعد) ويرجع الصف"""
+    """Grabs the first available stock unit (without delivering it yet) and returns the row"""
     conn = db()
     row = conn.execute(
         "SELECT * FROM stock WHERE product_id=? AND sold=0 LIMIT 1", (product_id,)
@@ -158,7 +158,7 @@ def set_order_status(order_id, status):
 
 
 async def deliver_order(order_id):
-    """يرسل المحتوى (الحساب/الكود) للعميل ويقفل الطلب"""
+    """Sends the content (account/code) to the customer and closes the order"""
     order = get_order(order_id=order_id)
     if not order or order["status"] == "delivered":
         return
@@ -167,8 +167,8 @@ async def deliver_order(order_id):
     if stock_id is None:
         s = reserve_stock(order["product_id"])
         if not s:
-            await bot.send_message(order["user_id"], "⚠️ عذراً، نفذت الكمية للمنتج. تواصل مع الدعم لاسترجاع المبلغ.")
-            await bot.send_message(ADMIN_ID, f"⚠️ نفذ مخزون المنتج #{order['product_id']} لكن تم دفع طلب #{order_id}")
+            await bot.send_message(order["user_id"], "⚠️ Sorry, this product is out of stock. Please contact support for a refund.")
+            await bot.send_message(ADMIN_ID, f"⚠️ Product #{order['product_id']} is out of stock but order #{order_id} was paid")
             return
         stock_id = s["id"]
     conn = db()
@@ -178,13 +178,13 @@ async def deliver_order(order_id):
     set_order_status(order_id, "delivered")
     await bot.send_message(
         order["user_id"],
-        f"✅ تم الدفع بنجاح!\n\n<b>{product['name']}</b>\n\n📦 محتوى طلبك:\n<code>{stock_row['content']}</code>\n\nشكراً لتسوقك معنا 🌟",
+        f"✅ Payment successful!\n\n<b>{product['name']}</b>\n\n📦 Your order content:\n<code>{stock_row['content']}</code>\n\nThank you for shopping with us 🌟",
     )
-    await bot.send_message(ADMIN_ID, f"💰 طلب جديد مكتمل #{order_id} — {product['name']} — {order['amount']}$")
+    await bot.send_message(ADMIN_ID, f"💰 New order completed #{order_id} — {product['name']} — {order['amount']}$")
 
 
 # ------------------------------------------------------------------
-# التحقق من بيانات تليكرام Mini App (initData) — حماية من التلاعب
+# Validate Telegram Mini App initData — protects against tampering
 # ------------------------------------------------------------------
 def validate_init_data(init_data: str):
     try:
@@ -231,30 +231,30 @@ def verify_cryptobot_signature(body_bytes: bytes, signature: str) -> bool:
 
 
 # ------------------------------------------------------------------
-# أزرار عامة
+# Common keyboards
 # ------------------------------------------------------------------
 def main_menu_kb():
-    kb = [[InlineKeyboardButton(text="🛍️ فتح المتجر", web_app=WebAppInfo(url=WEBAPP_URL))]] if WEBAPP_URL else []
-    kb.append([InlineKeyboardButton(text="📋 عرض المنتجات هنا", callback_data="list_products")])
+    kb = [[InlineKeyboardButton(text="🛍️ Open Store", web_app=WebAppInfo(url=WEBAPP_URL))]] if WEBAPP_URL else []
+    kb.append([InlineKeyboardButton(text="📋 Show products here", callback_data="list_products")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
 
 def payment_kb(product_id):
     kb = [
-        [InlineKeyboardButton(text="💎 الدفع عبر CryptoBot", callback_data=f"pay_crypto:{product_id}")],
-        [InlineKeyboardButton(text="🟡 الدفع عبر Binance Pay", callback_data=f"pay_binance:{product_id}")],
+        [InlineKeyboardButton(text="💎 Pay with CryptoBot", callback_data=f"pay_crypto:{product_id}")],
+        [InlineKeyboardButton(text="🟡 Pay with Binance Pay", callback_data=f"pay_binance:{product_id}")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
 
 # ------------------------------------------------------------------
-# أوامر المستخدم العادي
+# Regular user commands
 # ------------------------------------------------------------------
 @router.message(CommandStart())
 async def start_handler(message: Message):
     await message.answer(
-        "👋 أهلاً بك في المتجر!\n\nتقدر تتصفح المنتجات وتشتري حسابات وأكواد سوفتوير بالدفع عبر:\n"
-        "💎 CryptoBot (تلقائي وفوري)\n🟡 Binance Pay\n\nاضغط الزر تحت:",
+        "👋 Welcome to the store!\n\nBrowse products and buy accounts & software codes, paying via:\n"
+        "💎 CryptoBot (instant & automatic)\n🟡 Binance Pay\n\nTap the button below:",
         reply_markup=main_menu_kb(),
     )
 
@@ -263,11 +263,11 @@ async def start_handler(message: Message):
 async def list_products_cb(callback: CallbackQuery):
     products = list_products()
     if not products:
-        await callback.message.answer("لا توجد منتجات حالياً.")
+        await callback.message.answer("No products available right now.")
         await callback.answer()
         return
     for p in products:
-        text = f"<b>{p['name']}</b>\n{p['description'] or ''}\n\n💵 السعر: {p['price']}$\n📦 المتوفر: {p['available']}"
+        text = f"<b>{p['name']}</b>\n{p['description'] or ''}\n\n💵 Price: {p['price']}$\n📦 In stock: {p['available']}"
         kb = payment_kb(p["id"]) if p["available"] > 0 else None
         await callback.message.answer(text, reply_markup=kb)
     await callback.answer()
@@ -276,27 +276,27 @@ async def list_products_cb(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("pay_crypto:"))
 async def pay_crypto_cb(callback: CallbackQuery):
     if not CRYPTO_PAY_TOKEN:
-        await callback.answer("لم يتم تفعيل CryptoBot بعد من الأدمن.", show_alert=True)
+        await callback.answer("CryptoBot is not enabled yet by the admin.", show_alert=True)
         return
     product_id = int(callback.data.split(":")[1])
     product = get_product(product_id)
     if not product:
-        await callback.answer("المنتج غير موجود", show_alert=True)
+        await callback.answer("Product not found", show_alert=True)
         return
     try:
         invoice = await cryptobot_create_invoice(product["price"], product["name"])
-    except Exception as e:
+    except Exception:
         log.exception("cryptobot error")
-        await callback.answer("خطأ في إنشاء فاتورة الدفع، حاول لاحقاً.", show_alert=True)
+        await callback.answer("Error creating the payment invoice, try again later.", show_alert=True)
         return
     order_id = create_order(
         callback.from_user.id, product_id, None, product["price"], "cryptobot", invoice_id=str(invoice["invoice_id"])
     )
     kb = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="💳 ادفع الآن", url=invoice["bot_invoice_url"])]]
+        inline_keyboard=[[InlineKeyboardButton(text="💳 Pay now", url=invoice["bot_invoice_url"])]]
     )
     await callback.message.answer(
-        f"🧾 تم إنشاء فاتورة الدفع لطلب #{order_id}\nاضغط الزر تحت لإتمام الدفع، وبمجرد الدفع راح يوصلك المنتج تلقائياً.",
+        f"🧾 Payment invoice created for order #{order_id}\nTap the button below to complete payment — the product will be delivered automatically once paid.",
         reply_markup=kb,
     )
     await callback.answer()
@@ -307,15 +307,15 @@ async def pay_binance_cb(callback: CallbackQuery):
     product_id = int(callback.data.split(":")[1])
     product = get_product(product_id)
     if not product:
-        await callback.answer("المنتج غير موجود", show_alert=True)
+        await callback.answer("Product not found", show_alert=True)
         return
     order_id = create_order(callback.from_user.id, product_id, None, product["price"], "binance", status="awaiting_payment")
     kb = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="✅ لقد دفعت", callback_data=f"binance_paid:{order_id}")]]
+        inline_keyboard=[[InlineKeyboardButton(text="✅ I have paid", callback_data=f"binance_paid:{order_id}")]]
     )
     await callback.message.answer(
-        f"🟡 الدفع عبر Binance Pay\n\nحوّل مبلغ <b>{product['price']}$</b> إلى:\n<code>{BINANCE_PAY_ID}</code>\n\n"
-        f"بعد التحويل اضغط زر (لقد دفعت) تحت، وسيتم مراجعة الطلب #{order_id} وتسليمك المنتج خلال دقائق.",
+        f"🟡 Pay with Binance Pay\n\nTransfer <b>{product['price']}$</b> to:\n<code>{BINANCE_PAY_ID}</code>\n\n"
+        f"After transferring, tap the (I have paid) button below. Order #{order_id} will be reviewed and delivered within minutes.",
         reply_markup=kb,
     )
     await callback.answer()
@@ -326,52 +326,52 @@ async def binance_paid_cb(callback: CallbackQuery):
     order_id = int(callback.data.split(":")[1])
     order = get_order(order_id=order_id)
     if not order:
-        await callback.answer("الطلب غير موجود", show_alert=True)
+        await callback.answer("Order not found", show_alert=True)
         return
     set_order_status(order_id, "pending_review")
     product = get_product(order["product_id"])
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="✅ تأكيد الدفع وتسليم", callback_data=f"admin_confirm:{order_id}"),
-                InlineKeyboardButton(text="❌ رفض", callback_data=f"admin_reject:{order_id}"),
+                InlineKeyboardButton(text="✅ Confirm payment & deliver", callback_data=f"admin_confirm:{order_id}"),
+                InlineKeyboardButton(text="❌ Reject", callback_data=f"admin_reject:{order_id}"),
             ]
         ]
     )
     await bot.send_message(
         ADMIN_ID,
-        f"🔔 طلب دفع Binance Pay جديد #{order_id}\nالمنتج: {product['name']}\nالمبلغ: {order['amount']}$\n"
-        f"العميل: <a href='tg://user?id={order['user_id']}'>{order['user_id']}</a>",
+        f"🔔 New Binance Pay order #{order_id}\nProduct: {product['name']}\nAmount: {order['amount']}$\n"
+        f"Customer: <a href='tg://user?id={order['user_id']}'>{order['user_id']}</a>",
         reply_markup=kb,
     )
-    await callback.message.answer("⏳ تم إرسال طلبك للمراجعة، بيوصلك المنتج بمجرد التأكيد.")
+    await callback.message.answer("⏳ Your order was sent for review, it will be delivered once confirmed.")
     await callback.answer()
 
 
 # ------------------------------------------------------------------
-# أوامر الأدمن فقط
+# Admin-only commands
 # ------------------------------------------------------------------
 @router.callback_query(F.data.startswith("admin_confirm:"))
 async def admin_confirm_cb(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID:
-        await callback.answer("غير مصرح", show_alert=True)
+        await callback.answer("Not authorized", show_alert=True)
         return
     order_id = int(callback.data.split(":")[1])
     await deliver_order(order_id)
-    await callback.message.edit_text(callback.message.text + "\n\n✅ تم التأكيد والتسليم.")
+    await callback.message.edit_text(callback.message.text + "\n\n✅ Confirmed and delivered.")
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("admin_reject:"))
 async def admin_reject_cb(callback: CallbackQuery):
     if callback.from_user.id != ADMIN_ID:
-        await callback.answer("غير مصرح", show_alert=True)
+        await callback.answer("Not authorized", show_alert=True)
         return
     order_id = int(callback.data.split(":")[1])
     order = get_order(order_id=order_id)
     set_order_status(order_id, "rejected")
-    await bot.send_message(order["user_id"], "❌ لم يتم تأكيد دفعتك. تواصل مع الدعم إذا كنت متأكد من التحويل.")
-    await callback.message.edit_text(callback.message.text + "\n\n❌ تم الرفض.")
+    await bot.send_message(order["user_id"], "❌ Your payment could not be confirmed. Contact support if you're sure you sent it.")
+    await callback.message.edit_text(callback.message.text + "\n\n❌ Rejected.")
     await callback.answer()
 
 
@@ -396,11 +396,11 @@ async def admin_menu(message: Message):
     if not admin_only(message):
         return
     await message.answer(
-        "🛠️ لوحة الأدمن:\n"
-        "/addproduct — إضافة منتج جديد\n"
-        "/addstock — إضافة مخزون (حسابات/أكواد) لمنتج\n"
-        "/products — عرض كل المنتجات وأرقامها\n"
-        "/orders — عرض آخر الطلبات"
+        "🛠️ Admin panel:\n"
+        "/addproduct — Add a new product\n"
+        "/addstock — Add stock (accounts/codes) to a product\n"
+        "/products — Show all products and their IDs\n"
+        "/orders — Show recent orders"
     )
 
 
@@ -410,9 +410,9 @@ async def products_cmd(message: Message):
         return
     products = list_products()
     if not products:
-        await message.answer("لا توجد منتجات.")
+        await message.answer("No products yet.")
         return
-    text = "\n".join(f"#{p['id']} - {p['name']} - {p['price']}$ - متوفر: {p['available']}" for p in products)
+    text = "\n".join(f"#{p['id']} - {p['name']} - {p['price']}$ - in stock: {p['available']}" for p in products)
     await message.answer(text)
 
 
@@ -424,9 +424,9 @@ async def orders_cmd(message: Message):
     rows = conn.execute("SELECT * FROM orders ORDER BY id DESC LIMIT 20").fetchall()
     conn.close()
     if not rows:
-        await message.answer("لا توجد طلبات بعد.")
+        await message.answer("No orders yet.")
         return
-    text = "\n".join(f"#{r['id']} - منتج {r['product_id']} - {r['status']} - {r['method']}" for r in rows)
+    text = "\n".join(f"#{r['id']} - product {r['product_id']} - {r['status']} - {r['method']}" for r in rows)
     await message.answer(text)
 
 
@@ -435,21 +435,21 @@ async def addproduct_start(message: Message, state: FSMContext):
     if not admin_only(message):
         return
     await state.set_state(AddProduct.name)
-    await message.answer("📝 اكتب اسم المنتج:")
+    await message.answer("📝 Enter the product name:")
 
 
 @router.message(AddProduct.name)
 async def addproduct_name(message: Message, state: FSMContext):
     await state.update_data(name=message.text)
     await state.set_state(AddProduct.description)
-    await message.answer("📝 اكتب وصف قصير للمنتج:")
+    await message.answer("📝 Enter a short description for the product:")
 
 
 @router.message(AddProduct.description)
 async def addproduct_desc(message: Message, state: FSMContext):
     await state.update_data(description=message.text)
     await state.set_state(AddProduct.price)
-    await message.answer("💵 اكتب السعر بالدولار (مثال: 5.5):")
+    await message.answer("💵 Enter the price in USD (example: 5.5):")
 
 
 @router.message(AddProduct.price)
@@ -457,11 +457,11 @@ async def addproduct_price(message: Message, state: FSMContext):
     try:
         price = float(message.text.replace(",", "."))
     except ValueError:
-        await message.answer("⚠️ اكتب رقم صحيح للسعر، مثال: 5.5")
+        await message.answer("⚠️ Enter a valid number for the price, example: 5.5")
         return
     await state.update_data(price=price)
     await state.set_state(AddProduct.category)
-    await message.answer("🏷️ اكتب التصنيف (مثال: حسابات / أكواد سوفتوير):")
+    await message.answer("🏷️ Enter the category (example: Accounts / Software codes):")
 
 
 @router.message(AddProduct.category)
@@ -476,7 +476,7 @@ async def addproduct_category(message: Message, state: FSMContext):
     pid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     conn.close()
     await state.clear()
-    await message.answer(f"✅ تمت إضافة المنتج #{pid}\nالآن أضف له مخزون عبر /addstock")
+    await message.answer(f"✅ Product #{pid} added\nNow add stock for it with /addstock")
 
 
 @router.message(Command("addstock"))
@@ -485,9 +485,9 @@ async def addstock_start(message: Message, state: FSMContext):
         return
     products = list_products()
     if not products:
-        await message.answer("أضف منتج أولاً عبر /addproduct")
+        await message.answer("Add a product first with /addproduct")
         return
-    text = "اكتب رقم المنتج اللي تبي تضيف له مخزون:\n" + "\n".join(f"#{p['id']} - {p['name']}" for p in products)
+    text = "Enter the ID of the product you want to add stock to:\n" + "\n".join(f"#{p['id']} - {p['name']}" for p in products)
     await state.set_state(AddStock.product_id)
     await message.answer(text)
 
@@ -497,16 +497,16 @@ async def addstock_pid(message: Message, state: FSMContext):
     try:
         pid = int(message.text.strip().lstrip("#"))
     except ValueError:
-        await message.answer("⚠️ اكتب رقم المنتج فقط، مثال: 1")
+        await message.answer("⚠️ Enter the product ID number only, example: 1")
         return
     if not get_product(pid):
-        await message.answer("⚠️ رقم منتج غير موجود.")
+        await message.answer("⚠️ That product ID does not exist.")
         return
     await state.update_data(product_id=pid)
     await state.set_state(AddStock.content)
     await message.answer(
-        "📦 الآن أرسل محتوى المخزون. كل سطر = وحدة واحدة تُسلَّم لعميل واحد.\n\n"
-        "مثال:\nuser1:pass1\nuser2:pass2\n\nأو لو الحساب سطر واحد فقط ارسل سطر واحد."
+        "📦 Now send the stock content. Each line = one unit delivered to one customer.\n\n"
+        "Example:\nuser1:pass1\nuser2:pass2\n\nOr if it's a single account, send one line only."
     )
 
 
@@ -521,11 +521,11 @@ async def addstock_content(message: Message, state: FSMContext):
     conn.commit()
     conn.close()
     await state.clear()
-    await message.answer(f"✅ تمت إضافة {len(lines)} وحدة مخزون للمنتج #{pid}")
+    await message.answer(f"✅ Added {len(lines)} stock unit(s) to product #{pid}")
 
 
 # ------------------------------------------------------------------
-# خادم الويب (Mini App API + استقبال CryptoBot webhook)
+# Web server (Mini App API + CryptoBot webhook receiver)
 # ------------------------------------------------------------------
 async def handle_index(request):
     return web.FileResponse(os.path.join(os.path.dirname(__file__), "webapp", "index.html"))
@@ -540,20 +540,20 @@ async def handle_api_order(request):
     init_data = body.get("initData", "")
     user = validate_init_data(init_data)
     if not user:
-        return web.json_response({"ok": False, "error": "بيانات تليكرام غير صالحة"}, status=403)
+        return web.json_response({"ok": False, "error": "Invalid Telegram data"}, status=403)
     product_id = int(body.get("product_id"))
     method = body.get("method")
     product = get_product(product_id)
     if not product:
-        return web.json_response({"ok": False, "error": "المنتج غير موجود"}, status=404)
+        return web.json_response({"ok": False, "error": "Product not found"}, status=404)
 
     if method == "cryptobot":
         if not CRYPTO_PAY_TOKEN:
-            return web.json_response({"ok": False, "error": "CryptoBot غير مفعل"}, status=400)
+            return web.json_response({"ok": False, "error": "CryptoBot is not enabled"}, status=400)
         try:
             invoice = await cryptobot_create_invoice(product["price"], product["name"])
         except Exception:
-            return web.json_response({"ok": False, "error": "تعذر إنشاء فاتورة الدفع"}, status=500)
+            return web.json_response({"ok": False, "error": "Could not create the payment invoice"}, status=500)
         order_id = create_order(user["id"], product_id, None, product["price"], "cryptobot", invoice_id=str(invoice["invoice_id"]))
         return web.json_response({"ok": True, "order_id": order_id, "pay_url": invoice["bot_invoice_url"]})
 
@@ -561,11 +561,11 @@ async def handle_api_order(request):
         order_id = create_order(user["id"], product_id, None, product["price"], "binance", status="awaiting_payment")
         return web.json_response({"ok": True, "order_id": order_id, "binance_id": BINANCE_PAY_ID})
 
-    return web.json_response({"ok": False, "error": "طريقة دفع غير معروفة"}, status=400)
+    return web.json_response({"ok": False, "error": "Unknown payment method"}, status=400)
 
 
 async def handle_api_binance_confirm(request):
-    """المستخدم يضغط 'لقد دفعت' من الميني آب"""
+    """User taps 'I have paid' from the Mini App"""
     body = await request.json()
     user = validate_init_data(body.get("initData", ""))
     if not user:
@@ -579,15 +579,15 @@ async def handle_api_binance_confirm(request):
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="✅ تأكيد الدفع وتسليم", callback_data=f"admin_confirm:{order_id}"),
-                InlineKeyboardButton(text="❌ رفض", callback_data=f"admin_reject:{order_id}"),
+                InlineKeyboardButton(text="✅ Confirm payment & deliver", callback_data=f"admin_confirm:{order_id}"),
+                InlineKeyboardButton(text="❌ Reject", callback_data=f"admin_reject:{order_id}"),
             ]
         ]
     )
     await bot.send_message(
         ADMIN_ID,
-        f"🔔 طلب دفع Binance Pay جديد #{order_id}\nالمنتج: {product['name']}\nالمبلغ: {order['amount']}$\n"
-        f"العميل: <a href='tg://user?id={order['user_id']}'>{order['user_id']}</a>",
+        f"🔔 New Binance Pay order #{order_id}\nProduct: {product['name']}\nAmount: {order['amount']}$\n"
+        f"Customer: <a href='tg://user?id={order['user_id']}'>{order['user_id']}</a>",
         reply_markup=kb,
     )
     return web.json_response({"ok": True})
