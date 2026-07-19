@@ -262,13 +262,35 @@ async def list_products_cb(callback: CallbackQuery):
         await callback.message.answer("No products available right now.")
         await callback.answer()
         return
-    for p in products:
-        text = f"<b>{p['name']}</b>\n{p['description'] or ''}\n\n💵 Price: {p['price']}$\n📦 In stock: {p['available']}"
-        kb = payment_kb(p["id"]) if p["available"] > 0 else None
-        if p.get("image_file_id"):
-            await callback.message.answer_photo(photo=p["image_file_id"], caption=text, reply_markup=kb)
-        else:
-            await callback.message.answer(text, reply_markup=kb)
+    kb = [
+        [InlineKeyboardButton(
+            text=f"{p['name']} — {p['price']}$" + ("" if p["available"] > 0 else " (out of stock)"),
+            callback_data=f"view_product:{p['id']}",
+        )]
+        for p in products
+    ]
+    await callback.message.answer("📋 Choose a product to see details:", reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("view_product:"))
+async def view_product_cb(callback: CallbackQuery):
+    product_id = int(callback.data.split(":")[1])
+    p = get_product(product_id)
+    if not p:
+        await callback.answer("Product not found", show_alert=True)
+        return
+    conn = db()
+    count = conn.execute("SELECT COUNT(*) FROM stock WHERE product_id=? AND sold=0", (product_id,)).fetchone()[0]
+    conn.close()
+    text = f"<b>{p['name']}</b>\n{p['description'] or ''}\n\n💵 Price: {p['price']}$\n📦 In stock: {count}"
+    kb_rows = list(payment_kb(p["id"]).inline_keyboard) if count > 0 else []
+    kb_rows = kb_rows + [[InlineKeyboardButton(text="⬅️ Back to list", callback_data="list_products")]]
+    kb = InlineKeyboardMarkup(inline_keyboard=kb_rows)
+    if p.get("image_file_id"):
+        await callback.message.answer_photo(photo=p["image_file_id"], caption=text, reply_markup=kb)
+    else:
+        await callback.message.answer(text, reply_markup=kb)
     await callback.answer()
 
 
