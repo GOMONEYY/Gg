@@ -224,8 +224,12 @@ def validate_init_data(init_data: str):
 # Common keyboards
 # ------------------------------------------------------------------
 def main_menu_kb():
+    if WEBAPP_URL:
+        shop_button = InlineKeyboardButton(text="🛍️ Shop", web_app=WebAppInfo(url=WEBAPP_URL))
+    else:
+        shop_button = InlineKeyboardButton(text="🛍️ Shop", callback_data="list_products")
     kb = [
-        [InlineKeyboardButton(text="🛍️ Shop", callback_data="list_products")],
+        [shop_button],
         [InlineKeyboardButton(text="🆘 Support", url=f"https://t.me/{SUPPORT_USERNAME}")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb)
