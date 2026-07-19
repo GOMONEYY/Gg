@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>المتجر</title>
+<title>Store</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root {
@@ -55,23 +55,23 @@
   }
   .sheet h3 { margin-top: 0; }
   .pay-option {
-    display: block; width: 100%; margin-top: 10px; text-align: right;
+    display: block; width: 100%; margin-top: 10px; text-align: left;
   }
   .close-btn { background: transparent; color: var(--hint); text-align: center; width: 100%; margin-top: 14px; }
 </style>
 </head>
 <body>
-  <h1>🛍️ المتجر</h1>
+  <h1>🛍️ Store</h1>
   <div id="grid" class="grid"></div>
-  <div id="empty" class="empty" style="display:none">لا توجد منتجات متاحة حالياً</div>
+  <div id="empty" class="empty" style="display:none">No products available right now</div>
 
   <div id="overlay" class="overlay">
     <div class="sheet">
       <h3 id="sheetTitle"></h3>
       <p id="sheetDesc" style="color:var(--hint)"></p>
-      <button class="pay-option" onclick="pay('cryptobot')">💎 الدفع عبر CryptoBot</button>
-      <button class="pay-option" onclick="pay('binance')">🟡 الدفع عبر Binance Pay</button>
-      <button class="close-btn" onclick="closeSheet()">إلغاء</button>
+      <button class="pay-option" onclick="pay('cryptobot')">💎 Pay with CryptoBot</button>
+      <button class="pay-option" onclick="pay('binance')">🟡 Pay with Binance Pay</button>
+      <button class="close-btn" onclick="closeSheet()">Cancel</button>
     </div>
   </div>
 
@@ -98,14 +98,14 @@ async function loadProducts() {
       <p>${p.description || ''}</p>
       <div class="row">
         <span class="price">${p.price}$</span>
-        <span class="stock">متوفر: ${p.available}</span>
+        <span class="stock">In stock: ${p.available}</span>
       </div>
     `;
     if (p.available > 0) {
       const btn = document.createElement('button');
       btn.style.marginTop = '10px';
       btn.style.width = '100%';
-      btn.textContent = 'شراء الآن';
+      btn.textContent = 'Buy now';
       btn.onclick = () => openSheet(p);
       card.appendChild(btn);
     }
@@ -116,7 +116,7 @@ async function loadProducts() {
 function openSheet(p) {
   currentProduct = p;
   document.getElementById('sheetTitle').textContent = p.name;
-  document.getElementById('sheetDesc').textContent = `السعر: ${p.price}$`;
+  document.getElementById('sheetDesc').textContent = `Price: ${p.price}$`;
   document.getElementById('overlay').classList.add('show');
 }
 function closeSheet() {
@@ -137,17 +137,17 @@ async function pay(method) {
   const data = await res.json();
   closeSheet();
   if (!data.ok) {
-    tg.showAlert(data.error || 'حدث خطأ');
+    tg.showAlert(data.error || 'Something went wrong');
     return;
   }
   if (method === 'cryptobot') {
     tg.openLink(data.pay_url);
   } else {
     tg.showPopup({
-      title: 'الدفع عبر Binance Pay',
-      message: `حوّل ${currentProduct.price}$ إلى: ${data.binance_id}\n\nبعد التحويل اضغط تأكيد.`,
+      title: 'Pay with Binance Pay',
+      message: `Transfer ${currentProduct.price}$ to: ${data.binance_id}\n\nAfter transferring, tap Confirm.`,
       buttons: [
-        { id: 'confirm', type: 'default', text: 'لقد دفعت' },
+        { id: 'confirm', type: 'default', text: 'I have paid' },
         { id: 'cancel', type: 'cancel' }
       ]
     }, async (btnId) => {
@@ -157,7 +157,7 @@ async function pay(method) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ initData: tg.initData, order_id: data.order_id })
         });
-        tg.showAlert('تم إرسال طلبك للمراجعة، بيوصلك المنتج خلال دقائق.');
+        tg.showAlert('Your order was sent for review, it will be delivered within minutes.');
       }
     });
   }
