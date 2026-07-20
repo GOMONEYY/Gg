@@ -117,6 +117,12 @@
 
   <div id="screen-product-form" class="screen">
     <div class="topbar"><button class="back-btn" onclick="showScreen('products')">‹</button><h1 id="formTitle">New product</h1></div>
+    <div id="pfImageWrap" style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
+      <img id="pfImagePreview" src="" style="display:none; width:56px; height:56px; border-radius:12px; object-fit:cover;">
+      <div id="pfImagePlaceholder" class="icon" style="background:var(--surface-2)">🖼️</div>
+      <label for="pfImageInput" class="btn secondary" style="margin:0; width:auto; padding:10px 16px; display:inline-block;">Change photo</label>
+      <input type="file" id="pfImageInput" accept="image/*" style="display:none">
+    </div>
     <label>Name</label>
     <input id="pfName" placeholder="Microsoft 365 Premium 1 Year">
     <label>Description</label>
@@ -205,9 +211,39 @@ function openProductForm(p) {
   document.getElementById('pfPrice').value = p ? p.price : '';
   document.getElementById('pfCategory').value = p ? p.category : '';
   document.getElementById('stockSection').style.display = p ? 'block' : 'none';
+  const preview = document.getElementById('pfImagePreview');
+  const placeholder = document.getElementById('pfImagePlaceholder');
+  if (p && p.has_image) {
+    preview.src = '/image/' + p.id + '?t=' + Date.now();
+    preview.style.display = 'block';
+    placeholder.style.display = 'none';
+  } else {
+    preview.style.display = 'none';
+    placeholder.style.display = 'flex';
+  }
   if (p) loadStock(p.id);
   showScreen('product-form');
 }
+
+document.getElementById('pfImageInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!editingProductId) { tg.showAlert('Save the product first, then add a photo.'); return; }
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = reader.result.split(',')[1];
+    const res = await api('/api/admin/products/image', { product_id: editingProductId, image_base64: base64 });
+    if (res.ok) {
+      document.getElementById('pfImagePreview').src = '/image/' + editingProductId + '?t=' + Date.now();
+      document.getElementById('pfImagePreview').style.display = 'block';
+      document.getElementById('pfImagePlaceholder').style.display = 'none';
+      tg.HapticFeedback && tg.HapticFeedback.notificationOccurred('success');
+    } else {
+      tg.showAlert('Could not upload image');
+    }
+  };
+  reader.readAsDataURL(file);
+});
 
 async function saveProduct() {
   const payload = {
