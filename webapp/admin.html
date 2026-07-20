@@ -131,6 +131,12 @@
     <input id="pfPrice" type="number" step="0.01" placeholder="15.00">
     <label>Category</label>
     <input id="pfCategory" placeholder="Accounts">
+    <label>Delivery method</label>
+    <select id="pfDeliveryType" style="width:100%; background:var(--surface); border:none; color:var(--text); border-radius:12px; padding:12px 13px; font-size:15px;">
+      <option value="stock">📦 I provide the account/code (stock)</option>
+      <option value="email">📧 Customer provides email only</option>
+      <option value="email_code">📧🔑 Customer provides email + code</option>
+    </select>
     <button class="btn" onclick="saveProduct()">Save product</button>
     <div id="stockSection" style="display:none">
       <p class="eyebrow">Stock</p>
@@ -191,11 +197,15 @@ async function loadProducts() {
     const row = document.createElement('div');
     row.className = 'row';
     row.onclick = () => openProductForm(p);
+    const dtype = p.delivery_type || 'stock';
+    const stockLabel = dtype === 'stock'
+      ? `stock ${p.available}/${p.total_stock}`
+      : (dtype === 'email' ? 'email activation' : 'email + code activation');
     row.innerHTML = `
-      <span class="dot ${p.active && p.available > 0 ? 'on' : 'off'}"></span>
+      <span class="dot ${p.active && (dtype !== 'stock' || p.available > 0) ? 'on' : 'off'}"></span>
       <div class="row-main" style="margin-left:6px">
         <div class="row-title">${p.name}</div>
-        <div class="row-sub">$${p.price} · stock ${p.available}/${p.total_stock}${p.active ? '' : ' · disabled'}</div>
+        <div class="row-sub">$${p.price} · ${stockLabel}${p.active ? '' : ' · disabled'}</div>
       </div>
       <div class="chev">›</div>
     `;
@@ -210,6 +220,7 @@ function openProductForm(p) {
   document.getElementById('pfDesc').value = p ? (p.description || '') : '';
   document.getElementById('pfPrice').value = p ? p.price : '';
   document.getElementById('pfCategory').value = p ? p.category : '';
+  document.getElementById('pfDeliveryType').value = p ? (p.delivery_type || 'stock') : 'stock';
   document.getElementById('stockSection').style.display = p ? 'block' : 'none';
   const preview = document.getElementById('pfImagePreview');
   const placeholder = document.getElementById('pfImagePlaceholder');
@@ -251,6 +262,7 @@ async function saveProduct() {
     description: document.getElementById('pfDesc').value.trim(),
     price: document.getElementById('pfPrice').value,
     category: document.getElementById('pfCategory').value.trim() || 'General',
+    delivery_type: document.getElementById('pfDeliveryType').value,
   };
   if (!payload.name || !payload.price) { tg.showAlert('Name and price are required'); return; }
   let res = editingProductId
@@ -309,11 +321,14 @@ async function loadOrders() {
     row.style.flexDirection = 'column';
     row.style.alignItems = 'stretch';
     const statusClass = o.status === 'delivered' ? 'delivered' : (o.status === 'rejected' ? 'rejected' : 'pending');
+    const extra = [];
+    if (o.customer_email) extra.push('📧 ' + o.customer_email);
+    if (o.customer_code) extra.push('🔑 ' + o.customer_code);
     row.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
         <div class="row-main">
           <div class="row-title">#${o.id} · ${o.product_name || 'product #' + o.product_id}</div>
-          <div class="row-sub">$${o.amount} · ${o.method}</div>
+          <div class="row-sub">$${o.amount} · ${o.method}${extra.length ? ' · ' + extra.join(' · ') : ''}</div>
         </div>
         <span class="badge ${statusClass}">${o.status.replace('_',' ')}</span>
       </div>
