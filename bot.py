@@ -176,6 +176,88 @@ def set_order_status(order_id, status):
     conn.close()
 
 
+# ---- admin dashboard helpers ----
+def admin_stats():
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    conn = db()
+    orders_today = conn.execute(
+        "SELECT COUNT(*) FROM orders WHERE created_at LIKE ?", (f"{today}%",)
+    ).fetchone()[0]
+    revenue_today = conn.execute(
+        "SELECT COALESCE(SUM(amount),0) FROM orders WHERE status='delivered' AND created_at LIKE ?", (f"{today}%",)
+    ).fetchone()[0]
+    conn.close()
+    return {"orders_today": orders_today, "revenue_today": round(revenue_today, 2)}
+
+
+def list_all_products_admin():
+    conn = db()
+    rows = conn.execute(
+        """SELECT p.*,
+                  (SELECT COUNT(*) FROM stock s WHERE s.product_id = p.id AND s.sold = 0) AS available,
+                  (SELECT COUNT(*) FROM stock s WHERE s.product_id = p.id) AS total_stock
+           FROM products p ORDER BY p.id DESC"""
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def create_product(name, description, price, category):
+    conn = db()
+    conn.execute(
+        "INSERT INTO products (name, description, price, category) VALUES (?,?,?,?)",
+        (name, description, price, category),
+    )
+    conn.commit()
+    pid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.close()
+    return pid
+
+
+def update_product_fields(pid, name, description, price, category, active):
+    conn = db()
+    conn.execute(
+        "UPDATE products SET name=?, description=?, price=?, category=?, active=? WHERE id=?",
+        (name, description, price, category, active, pid),
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_stock_admin(pid):
+    conn = db()
+    rows = conn.execute("SELECT * FROM stock WHERE product_id=? ORDER BY sold ASC, id DESC", (pid,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def add_stock_lines(pid, lines):
+    conn = db()
+    for line in lines:
+        conn.execute("INSERT INTO stock (product_id, content) VALUES (?,?)", (pid, line))
+    conn.commit()
+    conn.close()
+
+
+def delete_stock_item(stock_id):
+    conn = db()
+    conn.execute("DELETE FROM stock WHERE id=? AND sold=0", (stock_id,))
+    conn.commit()
+    conn.close()
+
+
+def list_orders_admin(limit=100):
+    conn = db()
+    rows = conn.execute(
+        """SELECT o.*, p.name AS product_name FROM orders o
+           LEFT JOIN products p ON p.id = o.product_id
+           ORDER BY o.id DESC LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 async def deliver_order(order_id):
     order = get_order(order_id=order_id)
     if not order or order["status"] == "delivered":
@@ -425,13 +507,19 @@ def admin_only(message: Message) -> bool:
 async def admin_menu(message: Message):
     if not admin_only(message):
         return
-    await message.answer(
-        "🛠️ Admin panel:\n"
-        "/addproduct — Add a new product\n"
-        "/addstock — Add stock (accounts/codes) to a product\n"
-        "/products — Show all products and their IDs\n"
-        "/orders — Show recent orders"
-    )
+    if WEBAPP_URL:
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="🛠 Open Admin Panel", web_app=WebAppInfo(url=WEBAPP_URL + "/admin"))]]
+        )
+        await message.answer("🛠️ Tap below to open your admin dashboard:", reply_markup=kb)
+    else:
+        await message.answer(
+            "🛠️ Admin panel:\n"
+            "/addproduct — Add a new product\n"
+            "/addstock — Add stock (accounts/codes) to a product\n"
+            "/products — Show all products and their IDs\n"
+            "/orders — Show recent orders"
+        )
 
 
 @router.message(Command("products"))
@@ -659,13 +747,141 @@ async def on_startup(app):
     log.info("Bot polling started")
 
 
+def require_admin(body):
+    user = validate_init_data(body.get("initData", ""))
+    return bool(user and user.get("id") == ADMIN_ID)
+
+
+async def handle_admin_index(request):
+    return web.FileResponse(os.path.join(os.path.dirname(__file__), "webapp", "admin.html"))
+
+
+async def handle_admin_stats(request):
+    body = await request.json()
+    if not require_admin(body):
+        return web.json_response({"ok": False}, status=403)
+    return web.json_response({"ok": True, **admin_stats()})
+
+
+async def handle_admin_products_list(request):
+    body = await request.json()
+    if not require_admin(body):
+        return web.json_response({"ok": False}, status=403)
+    products = list_all_products_admin()
+    for p in products:
+        p["has_image"] = bool(p.get("image_file_id"))
+        p.pop("image_file_id", None)
+    return web.json_response({"ok": True, "products": products})
+
+
+async def handle_admin_products_create(request):
+    body = await request.json()
+    if not require_admin(body):
+        return web.json_response({"ok": False}, status=403)
+    try:
+        price = float(body.get("price", 0))
+    except (TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "Invalid price"}, status=400)
+    pid = create_product(body.get("name", "").strip(), body.get("description", "").strip(), price, body.get("category", "General").strip() or "General")
+    return web.json_response({"ok": True, "id": pid})
+
+
+async def handle_admin_products_update(request):
+    body = await request.json()
+    if not require_admin(body):
+        return web.json_response({"ok": False}, status=403)
+    try:
+        price = float(body.get("price", 0))
+    except (TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "Invalid price"}, status=400)
+    update_product_fields(
+        int(body["id"]), body.get("name", "").strip(), body.get("description", "").strip(),
+        price, body.get("category", "General").strip() or "General", 1 if body.get("active", True) else 0,
+    )
+    return web.json_response({"ok": True})
+
+
+async def handle_admin_products_delete(request):
+    body = await request.json()
+    if not require_admin(body):
+        return web.json_response({"ok": False}, status=403)
+    p = get_product(int(body["id"]))
+    if p:
+        update_product_fields(p["id"], p["name"], p["description"], p["price"], p["category"], 0)
+    return web.json_response({"ok": True})
+
+
+async def handle_admin_stock_list(request):
+    body = await request.json()
+    if not require_admin(body):
+        return web.json_response({"ok": False}, status=403)
+    items = list_stock_admin(int(body["product_id"]))
+    return web.json_response({"ok": True, "items": items})
+
+
+async def handle_admin_stock_add(request):
+    body = await request.json()
+    if not require_admin(body):
+        return web.json_response({"ok": False}, status=403)
+    lines = [l.strip() for l in body.get("lines", "").splitlines() if l.strip()]
+    add_stock_lines(int(body["product_id"]), lines)
+    return web.json_response({"ok": True, "added": len(lines)})
+
+
+async def handle_admin_stock_delete(request):
+    body = await request.json()
+    if not require_admin(body):
+        return web.json_response({"ok": False}, status=403)
+    delete_stock_item(int(body["stock_id"]))
+    return web.json_response({"ok": True})
+
+
+async def handle_admin_orders_list(request):
+    body = await request.json()
+    if not require_admin(body):
+        return web.json_response({"ok": False}, status=403)
+    return web.json_response({"ok": True, "orders": list_orders_admin()})
+
+
+async def handle_admin_orders_confirm(request):
+    body = await request.json()
+    if not require_admin(body):
+        return web.json_response({"ok": False}, status=403)
+    await deliver_order(int(body["order_id"]))
+    return web.json_response({"ok": True})
+
+
+async def handle_admin_orders_reject(request):
+    body = await request.json()
+    if not require_admin(body):
+        return web.json_response({"ok": False}, status=403)
+    order_id = int(body["order_id"])
+    order = get_order(order_id=order_id)
+    if order:
+        set_order_status(order_id, "rejected")
+        await bot.send_message(order["user_id"], "❌ Your payment could not be confirmed. Contact support if you're sure you sent it.")
+    return web.json_response({"ok": True})
+
+
 def create_app():
     app = web.Application()
     app.router.add_get("/", handle_index)
+    app.router.add_get("/admin", handle_admin_index)
     app.router.add_get("/api/products", handle_api_products)
     app.router.add_get("/image/{product_id}", handle_image)
     app.router.add_post("/api/order", handle_api_order)
     app.router.add_post("/api/confirm-payment", handle_api_confirm)
+    app.router.add_post("/api/admin/stats", handle_admin_stats)
+    app.router.add_post("/api/admin/products/list", handle_admin_products_list)
+    app.router.add_post("/api/admin/products/create", handle_admin_products_create)
+    app.router.add_post("/api/admin/products/update", handle_admin_products_update)
+    app.router.add_post("/api/admin/products/delete", handle_admin_products_delete)
+    app.router.add_post("/api/admin/stock/list", handle_admin_stock_list)
+    app.router.add_post("/api/admin/stock/add", handle_admin_stock_add)
+    app.router.add_post("/api/admin/stock/delete", handle_admin_stock_delete)
+    app.router.add_post("/api/admin/orders/list", handle_admin_orders_list)
+    app.router.add_post("/api/admin/orders/confirm", handle_admin_orders_confirm)
+    app.router.add_post("/api/admin/orders/reject", handle_admin_orders_reject)
     app.router.add_static("/static/", os.path.join(os.path.dirname(__file__), "webapp"))
     app.on_startup.append(on_startup)
     return app
