@@ -132,12 +132,13 @@
     <label>Category</label>
     <input id="pfCategory" placeholder="Accounts">
     <label>Delivery method</label>
-    <select id="pfDeliveryType" style="width:100%; background:var(--surface); border:none; color:var(--text); border-radius:12px; padding:12px 13px; font-size:15px;">
+    <select id="pfDeliveryType" style="width:100%; background:var(--surface); border:none; color:var(--text); border-radius:12px; padding:12px 13px; font-size:15px;" onchange="updateStockVisibility()">
       <option value="stock">📦 I provide the account/code (stock)</option>
       <option value="email">📧 Customer provides email only</option>
       <option value="email_code">📧🔑 Customer provides email + code</option>
     </select>
     <button class="btn" onclick="saveProduct()">Save product</button>
+    <div id="noStockNote" class="empty" style="display:none; padding:16px 0 0;">No stock needed — the customer sends their activation details when they buy.</div>
     <div id="stockSection" style="display:none">
       <p class="eyebrow">Stock</p>
       <div id="stockList" class="list"></div>
@@ -213,6 +214,12 @@ async function loadProducts() {
   });
 }
 
+function updateStockVisibility() {
+  const isStock = document.getElementById('pfDeliveryType').value === 'stock';
+  document.getElementById('stockSection').style.display = (editingProductId && isStock) ? 'block' : 'none';
+  document.getElementById('noStockNote').style.display = (editingProductId && !isStock) ? 'block' : 'none';
+}
+
 function openProductForm(p) {
   editingProductId = p ? p.id : null;
   document.getElementById('formTitle').textContent = p ? 'Edit product' : 'New product';
@@ -221,7 +228,8 @@ function openProductForm(p) {
   document.getElementById('pfPrice').value = p ? p.price : '';
   document.getElementById('pfCategory').value = p ? p.category : '';
   document.getElementById('pfDeliveryType').value = p ? (p.delivery_type || 'stock') : 'stock';
-  document.getElementById('stockSection').style.display = p ? 'block' : 'none';
+  document.getElementById('stockSection').style.display = 'none';
+  if (p) updateStockVisibility();
   const preview = document.getElementById('pfImagePreview');
   const placeholder = document.getElementById('pfImagePlaceholder');
   if (p && p.has_image) {
@@ -271,7 +279,7 @@ async function saveProduct() {
   if (!res.ok) { tg.showAlert(res.error || 'Something went wrong'); return; }
   if (!editingProductId) {
     editingProductId = res.id;
-    document.getElementById('stockSection').style.display = 'block';
+    updateStockVisibility();
     loadStock(editingProductId);
     document.getElementById('formTitle').textContent = 'Edit product';
   }
