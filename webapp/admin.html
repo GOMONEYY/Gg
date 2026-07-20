@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Admin</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: #000000;
+    --surface: #1c1c1e;
+    --surface-2: #2c2c2e;
+    --divider: rgba(255,255,255,0.08);
+    --text: #ffffff;
+    --muted: #8e8e93;
+    --green: #30d158;
+    --red: #ff453a;
+    --blue: #0a84ff;
+    --purple: #bf5af2;
+    --pink: #ff375f;
+    --orange: #ff9f0a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px 16px 50px;
+  }
+  h1 { font-size: 24px; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin: 22px 4px 8px; }
+
+  .stats-row { display: flex; gap: 10px; margin-top: 16px; }
+  .stat-card { flex: 1; background: var(--surface); border-radius: 16px; padding: 16px; }
+  .stat-card .label { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .stat-card .value { font-size: 26px; font-weight: 700; }
+
+  .list { background: var(--surface); border-radius: 16px; overflow: hidden; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--divider); }
+  .row:last-child { border-bottom: none; }
+  .icon { width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 19px; }
+  .row-main { flex: 1; min-width: 0; }
+  .row-title { font-size: 15px; font-weight: 600; }
+  .row-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .chev { color: var(--muted); font-size: 18px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot.on { background: var(--green); } .dot.off { background: var(--red); }
+
+  .badge { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 20px; flex-shrink: 0; }
+  .badge.pending { color: #04220e; background: var(--orange); }
+  .badge.delivered { color: #04220e; background: var(--green); }
+  .badge.rejected { color: #fff; background: var(--red); }
+
+  .fab {
+    position: fixed; right: 18px; bottom: 22px; background: var(--green); color: #04220e;
+    border: none; border-radius: 50px; padding: 14px 20px; font-weight: 700; font-size: 14.5px;
+    box-shadow: 0 8px 24px rgba(48,209,88,0.35);
+  }
+
+  .screen { display: none; } .screen.active { display: block; }
+  .topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .back-btn { background: var(--surface); border: none; color: var(--text); border-radius: 11px; width: 38px; height: 38px; font-size: 17px; }
+  .topbar h1 { margin: 0; }
+
+  label { display: block; font-size: 12.5px; color: var(--muted); margin: 14px 4px 6px; }
+  input, textarea {
+    width: 100%; background: var(--surface); border: none; color: var(--text);
+    border-radius: 12px; padding: 12px 13px; font-size: 15px; font-family: inherit;
+  }
+  textarea { resize: vertical; min-height: 70px; }
+  .btn { width: 100%; margin-top: 18px; background: var(--green); color: #04220e; border: none; border-radius: 13px; padding: 14px; font-size: 15px; font-weight: 700; }
+  .btn.secondary { background: var(--surface); color: var(--text); }
+  .btn.danger { background: var(--surface); color: var(--red); }
+  .stock-line { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; padding: 10px 14px; border-bottom: 1px solid var(--divider); word-break: break-all; }
+  .stock-line:last-child { border-bottom: none; }
+  .stock-line .del { color: var(--red); font-size: 12px; flex-shrink: 0; font-weight: 600; }
+  .empty { text-align: center; color: var(--muted); padding: 30px 0; font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="notAdmin" class="empty" style="display:none; padding-top:80px;">Not authorized</div>
+
+<div id="app" style="display:none">
+
+  <div id="screen-home" class="screen active">
+    <h1>Admin</h1>
+    <div class="stats-row">
+      <div class="stat-card"><div class="label">Today's orders</div><div class="value" id="statOrders">—</div></div>
+      <div class="stat-card"><div class="label">Today's revenue</div><div class="value" id="statRevenue">—</div></div>
+    </div>
+
+    <p class="eyebrow">Products</p>
+    <div class="list">
+      <div class="row" onclick="showScreen('products')">
+        <div class="icon" style="background:var(--green)">📦</div>
+        <div class="row-main"><div class="row-title">Product management</div><div class="row-sub" id="productCountSub">—</div></div>
+        <div class="chev">›</div>
+      </div>
+    </div>
+
+    <p class="eyebrow">Orders</p>
+    <div class="list">
+      <div class="row" onclick="showScreen('orders')">
+        <div class="icon" style="background:var(--blue)">📋</div>
+        <div class="row-main"><div class="row-title">All orders</div><div class="row-sub" id="orderCountSub">—</div></div>
+        <div class="chev">›</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-products" class="screen">
+    <div class="topbar"><button class="back-btn" onclick="showScreen('home')">‹</button><h1>Products</h1></div>
+    <div id="productsList" class="list"></div>
+    <button class="fab" onclick="openProductForm(null)">+ Add product</button>
+  </div>
+
+  <div id="screen-product-form" class="screen">
+    <div class="topbar"><button class="back-btn" onclick="showScreen('products')">‹</button><h1 id="formTitle">New product</h1></div>
+    <label>Name</label>
+    <input id="pfName" placeholder="Microsoft 365 Premium 1 Year">
+    <label>Description</label>
+    <textarea id="pfDesc" placeholder="Short description shown to customers"></textarea>
+    <label>Price (USD)</label>
+    <input id="pfPrice" type="number" step="0.01" placeholder="15.00">
+    <label>Category</label>
+    <input id="pfCategory" placeholder="Accounts">
+    <button class="btn" onclick="saveProduct()">Save product</button>
+    <div id="stockSection" style="display:none">
+      <p class="eyebrow">Stock</p>
+      <div id="stockList" class="list"></div>
+      <label>Add stock lines (one per unit)</label>
+      <textarea id="stockLines" placeholder="user1:pass1&#10;user2:pass2"></textarea>
+      <button class="btn secondary" onclick="addStock()">Add stock</button>
+      <button class="btn danger" onclick="deleteProduct()">Delete product</button>
+    </div>
+  </div>
+
+  <div id="screen-orders" class="screen">
+    <div class="topbar"><button class="back-btn" onclick="showScreen('home')">‹</button><h1>Orders</h1></div>
+    <div id="ordersList" class="list"></div>
+  </div>
+
+</div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready(); tg.expand();
+let editingProductId = null;
+
+async function api(path, extra) {
+  const res = await fetch(path, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ initData: tg.initData, ...extra })
+  });
+  return res.json();
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  if (name === 'products') loadProducts();
+  if (name === 'orders') loadOrders();
+  if (name === 'home') loadHome();
+}
+
+async function loadHome() {
+  const stats = await api('/api/admin/stats');
+  if (!stats.ok) return;
+  document.getElementById('statOrders').textContent = stats.orders_today;
+  document.getElementById('statRevenue').textContent = '$' + stats.revenue_today;
+  const prods = await api('/api/admin/products/list');
+  document.getElementById('productCountSub').textContent = prods.products.length + ' products';
+  const orders = await api('/api/admin/orders/list');
+  const pending = orders.orders.filter(o => o.status === 'pending_review').length;
+  document.getElementById('orderCountSub').textContent = orders.orders.length + ' total · ' + pending + ' pending';
+}
+
+async function loadProducts() {
+  const data = await api('/api/admin/products/list');
+  const list = document.getElementById('productsList');
+  list.innerHTML = '';
+  if (!data.products.length) { list.parentElement.insertAdjacentHTML('afterbegin',''); list.innerHTML = ''; document.getElementById('productsList').insertAdjacentHTML('beforebegin','<div class="empty">No products yet</div>'); return; }
+  data.products.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.onclick = () => openProductForm(p);
+    row.innerHTML = `
+      <span class="dot ${p.active && p.available > 0 ? 'on' : 'off'}"></span>
+      <div class="row-main" style="margin-left:6px">
+        <div class="row-title">${p.name}</div>
+        <div class="row-sub">$${p.price} · stock ${p.available}/${p.total_stock}${p.active ? '' : ' · disabled'}</div>
+      </div>
+      <div class="chev">›</div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function openProductForm(p) {
+  editingProductId = p ? p.id : null;
+  document.getElementById('formTitle').textContent = p ? 'Edit product' : 'New product';
+  document.getElementById('pfName').value = p ? p.name : '';
+  document.getElementById('pfDesc').value = p ? (p.description || '') : '';
+  document.getElementById('pfPrice').value = p ? p.price : '';
+  document.getElementById('pfCategory').value = p ? p.category : '';
+  document.getElementById('stockSection').style.display = p ? 'block' : 'none';
+  if (p) loadStock(p.id);
+  showScreen('product-form');
+}
+
+async function saveProduct() {
+  const payload = {
+    name: document.getElementById('pfName').value.trim(),
+    description: document.getElementById('pfDesc').value.trim(),
+    price: document.getElementById('pfPrice').value,
+    category: document.getElementById('pfCategory').value.trim() || 'General',
+  };
+  if (!payload.name || !payload.price) { tg.showAlert('Name and price are required'); return; }
+  let res = editingProductId
+    ? await api('/api/admin/products/update', { id: editingProductId, ...payload, active: true })
+    : await api('/api/admin/products/create', payload);
+  if (!res.ok) { tg.showAlert(res.error || 'Something went wrong'); return; }
+  if (!editingProductId) {
+    editingProductId = res.id;
+    document.getElementById('stockSection').style.display = 'block';
+    loadStock(editingProductId);
+    document.getElementById('formTitle').textContent = 'Edit product';
+  }
+  tg.HapticFeedback && tg.HapticFeedback.notificationOccurred('success');
+}
+
+async function loadStock(pid) {
+  const data = await api('/api/admin/stock/list', { product_id: pid });
+  const list = document.getElementById('stockList');
+  list.innerHTML = '';
+  if (!data.items.length) { list.innerHTML = '<div class="stock-line" style="color:var(--muted)">no stock yet</div>'; return; }
+  data.items.forEach(s => {
+    const line = document.createElement('div');
+    line.className = 'stock-line';
+    line.innerHTML = `<span>${s.sold ? '✅ ' : ''}${s.content}</span>` + (s.sold ? '' : `<span class="del" data-id="${s.id}">Delete</span>`);
+    if (!s.sold) line.querySelector('.del').onclick = () => deleteStockItem(s.id, pid);
+    list.appendChild(line);
+  });
+}
+
+async function addStock() {
+  const lines = document.getElementById('stockLines').value;
+  if (!lines.trim()) return;
+  const res = await api('/api/admin/stock/add', { product_id: editingProductId, lines });
+  document.getElementById('stockLines').value = '';
+  loadStock(editingProductId);
+  tg.showAlert('Added ' + res.added + ' unit(s)');
+}
+
+async function deleteStockItem(id, pid) { await api('/api/admin/stock/delete', { stock_id: id }); loadStock(pid); }
+
+async function deleteProduct() {
+  tg.showPopup({
+    title: 'Delete product', message: 'This will hide the product from the store. Continue?',
+    buttons: [{ id: 'yes', type: 'destructive', text: 'Delete' }, { id: 'no', type: 'cancel' }]
+  }, async (btnId) => { if (btnId === 'yes') { await api('/api/admin/products/delete', { id: editingProductId }); showScreen('products'); } });
+}
+
+async function loadOrders() {
+  const data = await api('/api/admin/orders/list');
+  const list = document.getElementById('ordersList');
+  list.innerHTML = '';
+  if (!data.orders.length) { list.innerHTML = '<div class="empty">No orders yet</div>'; return; }
+  data.orders.forEach(o => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.style.flexDirection = 'column';
+    row.style.alignItems = 'stretch';
+    const statusClass = o.status === 'delivered' ? 'delivered' : (o.status === 'rejected' ? 'rejected' : 'pending');
+    row.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <div class="row-main">
+          <div class="row-title">#${o.id} · ${o.product_name || 'product #' + o.product_id}</div>
+          <div class="row-sub">$${o.amount} · ${o.method}</div>
+        </div>
+        <span class="badge ${statusClass}">${o.status.replace('_',' ')}</span>
+      </div>
+    `;
+    if (o.status === 'pending_review') {
+      const actions = document.createElement('div');
+      actions.style.display = 'flex'; actions.style.gap = '8px'; actions.style.marginTop = '10px';
+      const okBtn = document.createElement('button');
+      okBtn.className = 'btn'; okBtn.style.margin = '0'; okBtn.textContent = 'Confirm & deliver';
+      okBtn.onclick = async () => { await api('/api/admin/orders/confirm', { order_id: o.id }); loadOrders(); };
+      const noBtn = document.createElement('button');
+      noBtn.className = 'btn danger'; noBtn.style.margin = '0'; noBtn.textContent = 'Reject';
+      noBtn.onclick = async () => { await api('/api/admin/orders/reject', { order_id: o.id }); loadOrders(); };
+      actions.appendChild(okBtn); actions.appendChild(noBtn);
+      row.appendChild(actions);
+    }
+    list.appendChild(row);
+  });
+}
+
+(async () => {
+  const stats = await api('/api/admin/stats');
+  if (!stats.ok) { document.getElementById('notAdmin').style.display = 'block'; return; }
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('statOrders').textContent = stats.orders_today;
+  document.getElementById('statRevenue').textContent = '$' + stats.revenue_today;
+  loadHome();
+})();
+</script>
+</body>
+</html>
