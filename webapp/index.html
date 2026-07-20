@@ -29,18 +29,20 @@
     padding: 20px 16px 40px;
   }
   h1 { font-size: 26px; font-weight: 700; margin: 0 0 2px; letter-spacing: -0.02em; }
-  .subtitle { color: var(--muted); font-size: 13.5px; margin: 0 0 20px; }
+  .subtitle { color: var(--muted); font-size: 13.5px; margin: 0 0 16px; }
 
-  .eyebrow {
-    font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
-    color: var(--muted); margin: 24px 4px 8px;
+  .tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 6px; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex-shrink: 0; background: var(--surface); color: var(--muted); border: none;
+    border-radius: 20px; padding: 8px 16px; font-size: 13.5px; font-weight: 600;
   }
+  .tab.active { background: var(--green); color: #04220e; }
+
+  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin: 20px 4px 8px; }
 
   .list { background: var(--surface); border-radius: 16px; overflow: hidden; }
-  .row {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 14px; border-bottom: 1px solid var(--divider);
-  }
+  .row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--divider); }
   .row:last-child { border-bottom: none; }
 
   .icon {
@@ -48,12 +50,8 @@
     display: flex; align-items: center; justify-content: center; font-size: 20px;
     object-fit: cover; position: relative;
   }
-  .icon .badge-dot {
-    position: absolute; bottom: -2px; right: -2px; width: 12px; height: 12px;
-    border-radius: 50%; border: 2px solid var(--surface);
-  }
-  .badge-dot.on { background: var(--green); }
-  .badge-dot.off { background: var(--red); }
+  .icon .badge-dot { position: absolute; bottom: -2px; right: -2px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--surface); }
+  .badge-dot.on { background: var(--green); } .badge-dot.off { background: var(--red); }
 
   .row-main { flex: 1; min-width: 0; }
   .row-title { font-size: 15px; font-weight: 600; }
@@ -66,44 +64,43 @@
 
   .empty { text-align: center; color: var(--muted); margin-top: 60px; font-size: 14px; }
 
-  .overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,.6);
-    display: none; align-items: flex-end; justify-content: center; z-index: 10;
-  }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: flex-end; justify-content: center; z-index: 10; }
   .overlay.show { display: flex; }
-  .sheet {
-    background: var(--surface); width: 100%; max-width: 480px;
-    border-radius: 20px 20px 0 0; padding: 20px 18px 30px;
-  }
+  .sheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 20px 20px 0 0; padding: 20px 18px 30px; max-height: 88vh; overflow-y: auto; }
   .sheet-handle { width: 36px; height: 4px; background: var(--surface-2); border-radius: 4px; margin: 0 auto 16px; }
   .sheet h3 { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
   .sheet .sub { color: var(--muted); font-size: 13.5px; margin: 0 0 18px; }
 
-  .pay-option {
-    display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 8px; text-align: left;
-    background: var(--surface-2); border: none; color: var(--text);
-    border-radius: 13px; padding: 13px 14px; font-size: 14.5px; font-weight: 500;
+  label { display: block; font-size: 12.5px; color: var(--muted); margin: 14px 2px 6px; }
+  input[type=text], input[type=email] {
+    width: 100%; background: var(--surface-2); border: none; color: var(--text);
+    border-radius: 10px; padding: 11px 12px; font-size: 14px;
   }
+
+  .pay-option { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 8px; text-align: left; background: var(--surface-2); border: none; color: var(--text); border-radius: 13px; padding: 13px 14px; font-size: 14.5px; font-weight: 500; }
   .close-btn { background: transparent; color: var(--muted); text-align: center; width: 100%; margin-top: 14px; padding: 10px; font-size: 14px; }
 
-  .addr-box {
-    background: var(--surface-2); border-radius: 12px; padding: 12px; margin-top: 10px;
-    font-size: 13px; word-break: break-all; display: flex; justify-content: space-between; align-items: center; gap: 10px;
-  }
+  .addr-box { background: var(--surface-2); border-radius: 12px; padding: 12px; margin-top: 10px; font-size: 13px; word-break: break-all; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   .addr-net { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; display: block; margin-bottom: 4px; }
   .copy-chip { flex-shrink: 0; background: var(--green); color: #04220e; border: none; border-radius: 8px; padding: 7px 12px; font-size: 12px; font-weight: 700; }
 
-  .confirm-btn {
-    width: 100%; margin-top: 18px; background: var(--green); color: #04220e;
-    border: none; border-radius: 13px; padding: 14px; font-size: 15px; font-weight: 700;
+  .proof-picker {
+    display: flex; align-items: center; gap: 10px; background: var(--surface-2); border-radius: 12px; padding: 12px; margin-top: 14px;
   }
+  .proof-picker img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; }
+  .proof-picker .placeholder { width: 40px; height: 40px; border-radius: 8px; background: var(--bg); display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .proof-picker label { margin: 0; flex: 1; font-size: 13.5px; color: var(--text); }
+
+  .confirm-btn { width: 100%; margin-top: 18px; background: var(--green); color: #04220e; border: none; border-radius: 13px; padding: 14px; font-size: 15px; font-weight: 700; }
+  .confirm-btn:disabled { opacity: 0.4; }
 </style>
 </head>
 <body>
   <h1>Store</h1>
   <p class="subtitle">Digital goods · instant delivery</p>
 
-  <p class="eyebrow">Products</p>
+  <div class="tabs" id="tabs"></div>
+
   <div id="grid" class="list"></div>
   <div id="empty" class="empty" style="display:none">No products available right now</div>
 
@@ -116,24 +113,33 @@
     </div>
   </div>
 
+  <!-- buy sheet: collect email/code if needed, then choose payment method -->
   <div id="overlay" class="overlay">
     <div class="sheet">
       <div class="sheet-handle"></div>
       <h3 id="sheetTitle"></h3>
       <p class="sub" id="sheetDesc"></p>
+      <div id="buyExtraFields"></div>
       <button class="pay-option" onclick="pay('usdt')"><span>💵</span> Pay with USDT</button>
       <button class="pay-option" onclick="pay('binance')"><span>🟡</span> Pay with Binance Pay</button>
       <button class="close-btn" onclick="closeSheet('overlay')">Cancel</button>
     </div>
   </div>
 
+  <!-- payment details + proof upload -->
   <div id="payOverlay" class="overlay">
     <div class="sheet">
       <div class="sheet-handle"></div>
       <h3 id="payTitle"></h3>
       <p class="sub" id="payDesc"></p>
       <div id="addrList"></div>
-      <button class="confirm-btn" onclick="confirmPaid()">✅ I have paid</button>
+      <div class="proof-picker">
+        <img id="proofPreview" style="display:none">
+        <div class="placeholder" id="proofPlaceholder">📸</div>
+        <label for="proofInput">Attach payment screenshot</label>
+        <input type="file" id="proofInput" accept="image/*" style="display:none">
+      </div>
+      <button class="confirm-btn" id="confirmBtn" disabled onclick="confirmPaid()">✅ I have paid</button>
       <button class="close-btn" onclick="closeSheet('payOverlay')">Cancel</button>
     </div>
   </div>
@@ -143,8 +149,11 @@ const tg = window.Telegram.WebApp;
 tg.ready();
 tg.expand();
 
+let allProducts = [];
+let activeCategory = 'All';
 let currentProduct = null;
 let currentOrder = null;
+let proofBase64 = null;
 
 document.getElementById('supportRow').onclick = () => tg.openTelegramLink('https://t.me/No111x');
 
@@ -153,20 +162,41 @@ const COLORS = ['var(--blue)','var(--purple)','var(--orange)','var(--pink)','var
 
 async function loadProducts() {
   const res = await fetch('/api/products');
-  const products = await res.json();
+  allProducts = await res.json();
+  renderTabs();
+  renderGrid();
+}
+
+function renderTabs() {
+  const cats = ['All', ...new Set(allProducts.map(p => p.category || 'General'))];
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = '';
+  cats.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (c === activeCategory ? ' active' : '');
+    btn.textContent = c;
+    btn.onclick = () => { activeCategory = c; renderTabs(); renderGrid(); };
+    tabs.appendChild(btn);
+  });
+}
+
+function renderGrid() {
   const grid = document.getElementById('grid');
   const empty = document.getElementById('empty');
+  const products = activeCategory === 'All' ? allProducts : allProducts.filter(p => (p.category || 'General') === activeCategory);
   grid.innerHTML = '';
   if (!products.length) { empty.style.display = 'block'; return; }
   empty.style.display = 'none';
   products.forEach((p, i) => {
-    const out = p.available <= 0;
+    const isStock = (p.delivery_type || 'stock') === 'stock';
+    const out = isStock && p.available <= 0;
     const row = document.createElement('div');
     row.className = 'row';
     if (!out) row.style.cursor = 'pointer';
     const iconInner = p.has_image
       ? `<img class="icon" src="/image/${p.id}" alt=""><span class="badge-dot ${out ? 'off' : 'on'}" style="position:absolute"></span>`
       : `<div class="icon" style="background:${COLORS[i % COLORS.length]}">${ICONS[i % ICONS.length]}<span class="badge-dot ${out ? 'off' : 'on'}"></span></div>`;
+    const stockLabel = isStock ? (out ? 'out of stock' : p.available + ' in stock') : 'available';
     row.innerHTML = `
       ${iconInner}
       <div class="row-main">
@@ -175,7 +205,7 @@ async function loadProducts() {
       </div>
       <div class="row-right">
         <div class="price">$${p.price}</div>
-        <div class="stock-tag ${out ? 'out' : ''}">${out ? 'out of stock' : p.available + ' in stock'}</div>
+        <div class="stock-tag ${out ? 'out' : ''}">${stockLabel}</div>
       </div>
       ${out ? '' : '<div class="chev">›</div>'}
     `;
@@ -188,23 +218,46 @@ function openSheet(p) {
   currentProduct = p;
   document.getElementById('sheetTitle').textContent = p.name;
   document.getElementById('sheetDesc').textContent = `$${p.price} · choose a payment method`;
+  const extra = document.getElementById('buyExtraFields');
+  extra.innerHTML = '';
+  const dtype = p.delivery_type || 'stock';
+  if (dtype === 'email' || dtype === 'email_code') {
+    extra.innerHTML += `<label>Email for activation</label><input type="email" id="buyEmail" placeholder="you@example.com">`;
+  }
+  if (dtype === 'email_code') {
+    extra.innerHTML += `<label>Password / code</label><input type="text" id="buyCode" placeholder="account password">`;
+  }
   document.getElementById('overlay').classList.add('show');
 }
 function closeSheet(id) { document.getElementById(id).classList.remove('show'); }
 
 async function pay(method) {
   if (!currentProduct) return;
+  const dtype = currentProduct.delivery_type || 'stock';
+  let email = null, code = null;
+  if (dtype === 'email' || dtype === 'email_code') {
+    email = (document.getElementById('buyEmail')?.value || '').trim();
+    if (!email || !email.includes('@')) { tg.showAlert('Please enter a valid email'); return; }
+  }
+  if (dtype === 'email_code') {
+    code = (document.getElementById('buyCode')?.value || '').trim();
+    if (!code) { tg.showAlert('Please enter the account password/code'); return; }
+  }
   const res = await fetch('/api/order', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ initData: tg.initData, product_id: currentProduct.id, method })
+    body: JSON.stringify({ initData: tg.initData, product_id: currentProduct.id, method, email, code })
   });
   const data = await res.json();
   closeSheet('overlay');
   if (!data.ok) { tg.showAlert(data.error || 'Something went wrong'); return; }
   currentOrder = data.order_id;
+  proofBase64 = null;
+  document.getElementById('proofPreview').style.display = 'none';
+  document.getElementById('proofPlaceholder').style.display = 'flex';
+  document.getElementById('confirmBtn').disabled = true;
 
   document.getElementById('payTitle').textContent = method === 'usdt' ? 'Pay with USDT' : 'Pay with Binance Pay';
-  document.getElementById('payDesc').textContent = `Send $${currentProduct.price} to the address below, then confirm.`;
+  document.getElementById('payDesc').textContent = `Send $${currentProduct.price} to the address below, then attach a screenshot.`;
   const addrList = document.getElementById('addrList');
   addrList.innerHTML = '';
   if (method === 'usdt') {
@@ -231,13 +284,32 @@ function makeAddrBox(label, addr) {
   return box;
 }
 
+document.getElementById('proofInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    proofBase64 = reader.result.split(',')[1];
+    document.getElementById('proofPreview').src = reader.result;
+    document.getElementById('proofPreview').style.display = 'block';
+    document.getElementById('proofPlaceholder').style.display = 'none';
+    document.getElementById('confirmBtn').disabled = false;
+  };
+  reader.readAsDataURL(file);
+});
+
 async function confirmPaid() {
-  if (!currentOrder) return;
-  await fetch('/api/confirm-payment', {
+  if (!currentOrder || !proofBase64) return;
+  document.getElementById('confirmBtn').disabled = true;
+  document.getElementById('confirmBtn').textContent = 'Sending...';
+  const res = await fetch('/api/confirm-payment', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ initData: tg.initData, order_id: currentOrder })
+    body: JSON.stringify({ initData: tg.initData, order_id: currentOrder, proof_base64: proofBase64 })
   });
+  const data = await res.json();
   closeSheet('payOverlay');
+  document.getElementById('confirmBtn').textContent = '✅ I have paid';
+  if (!data.ok) { tg.showAlert(data.error || 'Could not submit payment'); return; }
   tg.showAlert('Your order was sent for review — it will be delivered within minutes.');
 }
 
