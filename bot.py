@@ -18,6 +18,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
+    BufferedInputFile,
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -863,6 +864,26 @@ async def handle_admin_orders_reject(request):
     return web.json_response({"ok": True})
 
 
+async def handle_admin_products_image(request):
+    body = await request.json()
+    if not require_admin(body):
+        return web.json_response({"ok": False}, status=403)
+    import base64
+    try:
+        raw = base64.b64decode(body["image_base64"])
+    except Exception:
+        return web.json_response({"ok": False, "error": "Invalid image data"}, status=400)
+    pid = int(body["product_id"])
+    file = BufferedInputFile(raw, filename="product.jpg")
+    msg = await bot.send_photo(ADMIN_ID, photo=file, caption=f"Image for product #{pid}")
+    file_id = msg.photo[-1].file_id
+    conn = db()
+    conn.execute("UPDATE products SET image_file_id=? WHERE id=?", (file_id, pid))
+    conn.commit()
+    conn.close()
+    return web.json_response({"ok": True})
+
+
 def create_app():
     app = web.Application()
     app.router.add_get("/", handle_index)
@@ -876,6 +897,7 @@ def create_app():
     app.router.add_post("/api/admin/products/create", handle_admin_products_create)
     app.router.add_post("/api/admin/products/update", handle_admin_products_update)
     app.router.add_post("/api/admin/products/delete", handle_admin_products_delete)
+    app.router.add_post("/api/admin/products/image", handle_admin_products_image)
     app.router.add_post("/api/admin/stock/list", handle_admin_stock_list)
     app.router.add_post("/api/admin/stock/add", handle_admin_stock_add)
     app.router.add_post("/api/admin/stock/delete", handle_admin_stock_delete)
