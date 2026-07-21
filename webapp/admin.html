@@ -52,6 +52,7 @@
 
   .badge { font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 20px; flex-shrink: 0; }
   .badge.pending { color: #431a00; background: var(--orange); }
+  .badge.processing { color: #fff; background: var(--blue); }
   .badge.delivered { color: #04220e; background: var(--green); }
   .badge.rejected { color: #fff; background: var(--red); }
 
@@ -95,6 +96,9 @@
     <div class="stats-row">
       <div class="stat-card"><div class="label">Today's orders</div><div class="value" id="statOrders">—</div></div>
       <div class="stat-card"><div class="label">Today's revenue</div><div class="value" id="statRevenue">—</div></div>
+    </div>
+    <div class="stats-row" style="margin-top:10px;">
+      <div class="stat-card"><div class="label">Subscribers</div><div class="value" id="statSubs">—</div></div>
     </div>
 
     <p class="eyebrow">Products</p>
@@ -189,6 +193,7 @@ async function loadHome() {
   if (!stats.ok) return;
   document.getElementById('statOrders').textContent = stats.orders_today;
   document.getElementById('statRevenue').textContent = '$' + stats.revenue_today;
+  document.getElementById('statSubs').textContent = stats.subscribers;
   const prods = await api('/api/admin/products/list');
   document.getElementById('productCountSub').textContent = prods.products.length + ' products';
   const orders = await api('/api/admin/orders/list');
@@ -277,22 +282,37 @@ function openProductForm(p) {
   showScreen('product-form');
 }
 
-document.getElementById('pfImageInput').addEventListener('change', async (e) => {
+document.getElementById('pfImageInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
   if (!editingProductId) { tg.showAlert('Save the product first, then add a photo.'); return; }
   const reader = new FileReader();
-  reader.onload = async () => {
-    const base64 = reader.result.split(',')[1];
-    const res = await api('/api/admin/products/image', { product_id: editingProductId, image_base64: base64 });
-    if (res.ok) {
-      document.getElementById('pfImagePreview').src = '/image/' + editingProductId + '?t=' + Date.now();
-      document.getElementById('pfImagePreview').style.display = 'block';
-      document.getElementById('pfImagePlaceholder').style.display = 'none';
-      tg.HapticFeedback && tg.HapticFeedback.notificationOccurred('success');
-    } else {
-      tg.showAlert('Could not upload image');
-    }
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = async () => {
+      const maxDim = 1000;
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+      try {
+        const res = await api('/api/admin/products/image', { product_id: editingProductId, image_base64: base64 });
+        if (!res.ok) throw new Error('Upload failed');
+        document.getElementById('pfImagePreview').src = '/image/' + editingProductId + '?t=' + Date.now();
+        document.getElementById('pfImagePreview').style.display = 'block';
+        document.getElementById('pfImagePlaceholder').style.display = 'none';
+        tg.HapticFeedback && tg.HapticFeedback.notificationOccurred('success');
+      } catch (err) {
+        tg.showAlert('Could not upload image: ' + err.message);
+      }
+    };
+    img.src = reader.result;
   };
   reader.readAsDataURL(file);
 });
@@ -361,15 +381,16 @@ async function loadOrders() {
     row.className = 'row';
     row.style.flexDirection = 'column';
     row.style.alignItems = 'stretch';
-    const statusClass = o.status === 'delivered' ? 'delivered' : (o.status === 'rejected' ? 'rejected' : 'pending');
-    const extra = [];
+    const statusClass = o.status === 'delivered' ? 'delivered' : (o.status === 'rejected' ? 'rejected' : (o.status === 'processing' ? 'processing' : 'pending'));
+    const who = o.customer_username ? '@' + o.customer_username : ('ID ' + o.user_id);
+    const extra = ['👤 ' + who];
     if (o.customer_email) extra.push('📧 ' + o.customer_email);
     if (o.customer_code) extra.push('🔑 ' + o.customer_code);
     row.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
         <div class="row-main">
           <div class="row-title">#${o.id} · ${o.product_name || 'product #' + o.product_id}</div>
-          <div class="row-sub">$${o.amount} · ${o.method}${extra.length ? ' · ' + extra.join(' · ') : ''}</div>
+          <div class="row-sub">$${o.amount} · ${o.method} · ${extra.join(' · ')}</div>
         </div>
         <span class="badge ${statusClass}">${o.status.replace('_',' ')}</span>
       </div>
@@ -385,6 +406,14 @@ async function loadOrders() {
       noBtn.onclick = async () => { await api('/api/admin/orders/reject', { order_id: o.id }); loadOrders(); };
       actions.appendChild(okBtn); actions.appendChild(noBtn);
       row.appendChild(actions);
+    } else if (o.status === 'processing') {
+      const actions = document.createElement('div');
+      actions.style.marginTop = '10px';
+      const doneBtn = document.createElement('button');
+      doneBtn.className = 'btn'; doneBtn.style.margin = '0'; doneBtn.textContent = '✅ Mark activation complete';
+      doneBtn.onclick = async () => { await api('/api/admin/orders/activate', { order_id: o.id }); loadOrders(); };
+      actions.appendChild(doneBtn);
+      row.appendChild(actions);
     }
     list.appendChild(row);
   });
@@ -396,6 +425,7 @@ async function loadOrders() {
   document.getElementById('app').style.display = 'block';
   document.getElementById('statOrders').textContent = stats.orders_today;
   document.getElementById('statRevenue').textContent = '$' + stats.revenue_today;
+  document.getElementById('statSubs').textContent = stats.subscribers;
   loadHome();
 })();
 </script>
