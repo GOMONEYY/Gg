@@ -16,6 +16,7 @@
     --blue: #0a84ff;
     --green: #30d158;
     --red: #ff453a;
+    --orange: #ff9f0a;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html { -webkit-font-smoothing: antialiased; }
@@ -70,6 +71,16 @@
   .pill-btn.sold-out { color: var(--muted); }
 
   .empty { text-align: center; color: var(--muted); margin-top: 60px; font-size: 14px; }
+
+  .status-badge { font-size: 10.5px; font-weight: 700; padding: 4px 11px; border-radius: 20px; flex-shrink: 0; }
+  .status-badge.pending { color: #431a00; background: var(--orange); }
+  .status-badge.processing { color: #fff; background: var(--blue); }
+  .status-badge.delivered { color: #04220e; background: var(--green); }
+  .status-badge.rejected { color: #fff; background: var(--red); }
+  .code-box { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 13px; margin-top: 12px; font-size: 13.5px; word-break: break-all; font-family: ui-monospace, monospace; }
+  .detail-line { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--divider); font-size: 13.5px; }
+  .detail-line:last-child { border-bottom: none; }
+  .detail-line .k { color: var(--muted); }
 
   /* floating bottom tab bar */
   .tabbar {
@@ -136,21 +147,32 @@
 </style>
 </head>
 <body>
-  <div class="headerRow">
-    <h1>Store</h1>
-    <div class="avatar" id="avatarBtn">🛍️</div>
+  <div id="storeScreen">
+    <div class="headerRow">
+      <h1>Store</h1>
+      <div class="avatar" id="avatarBtn">🛍️</div>
+    </div>
+
+    <div class="search-bar">
+      <span class="icon-glyph">🔍</span>
+      <input type="text" id="searchInput" placeholder="Search products">
+    </div>
+
+    <div id="sections"></div>
+    <div id="empty" class="empty" style="display:none">No products found</div>
   </div>
 
-  <div class="search-bar">
-    <span class="icon-glyph">🔍</span>
-    <input type="text" id="searchInput" placeholder="Search products">
+  <div id="ordersScreen" style="display:none">
+    <div class="headerRow">
+      <h1>My Orders</h1>
+    </div>
+    <div id="myOrdersList" class="card"></div>
+    <div id="myOrdersEmpty" class="empty" style="display:none">No orders yet</div>
   </div>
-
-  <div id="sections"></div>
-  <div id="empty" class="empty" style="display:none">No products found</div>
 
   <div class="tabbar">
     <button class="tab-item active" id="tabStore"><span class="tab-icon">🏬</span>Store</button>
+    <button class="tab-item" id="tabOrders"><span class="tab-icon">🧾</span>Orders</button>
     <button class="tab-item" id="tabSupport"><span class="tab-icon">🆘</span>Support</button>
   </div>
 
@@ -183,6 +205,16 @@
     </div>
   </div>
 
+  <div id="orderDetailOverlay" class="overlay">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <h3 id="odTitle"></h3>
+      <p class="sub" id="odSub"></p>
+      <div id="odBody"></div>
+      <button class="close-btn" onclick="closeSheet('orderDetailOverlay')">Close</button>
+    </div>
+  </div>
+
 <script>
 const tg = window.Telegram.WebApp;
 tg.ready();
@@ -196,7 +228,108 @@ let searchQuery = '';
 
 document.getElementById('avatarBtn').onclick = () => tg.openTelegramLink('https://t.me/No111x');
 document.getElementById('tabSupport').onclick = () => tg.openTelegramLink('https://t.me/No111x');
-document.getElementById('tabStore').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+document.getElementById('tabStore').onclick = () => showScreen('store');
+document.getElementById('tabOrders').onclick = () => showScreen('orders');
+
+function showScreen(name) {
+  document.getElementById('storeScreen').style.display = name === 'store' ? 'block' : 'none';
+  document.getElementById('ordersScreen').style.display = name === 'orders' ? 'block' : 'none';
+  document.getElementById('tabStore').classList.toggle('active', name === 'store');
+  document.getElementById('tabOrders').classList.toggle('active', name === 'orders');
+  window.scrollTo({ top: 0 });
+  if (name === 'orders') loadMyOrders();
+}
+
+const STATUS_LABELS = {
+  pending: 'Pending', awaiting_payment: 'Awaiting payment', pending_review: 'Under review',
+  processing: 'Activating', delivered: 'Delivered', rejected: 'Rejected',
+};
+function statusClass(s) {
+  if (s === 'delivered') return 'delivered';
+  if (s === 'rejected') return 'rejected';
+  if (s === 'processing') return 'processing';
+  return 'pending';
+}
+
+async function loadMyOrders() {
+  const res = await fetch('/api/my-orders', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ initData: tg.initData })
+  });
+  const data = await res.json();
+  const list = document.getElementById('myOrdersList');
+  const empty = document.getElementById('myOrdersEmpty');
+  list.innerHTML = '';
+  if (!data.ok || !data.orders.length) { empty.style.display = 'block'; list.style.display = 'none'; return; }
+  empty.style.display = 'none'; list.style.display = 'block';
+  data.orders.forEach(o => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.style.cursor = 'pointer';
+    row.innerHTML = `
+      <div class="row-main">
+        <div class="row-title">#${o.id} · ${o.product_name}</div>
+        <div class="row-sub">$${o.amount} · ${o.method.toUpperCase()}</div>
+      </div>
+      <span class="status-badge ${statusClass(o.status)}">${STATUS_LABELS[o.status] || o.status}</span>
+    `;
+    row.onclick = () => openOrderDetail(o.id);
+    list.appendChild(row);
+  });
+}
+
+async function openOrderDetail(orderId) {
+  const res = await fetch('/api/my-orders/detail', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ initData: tg.initData, order_id: orderId })
+  });
+  const data = await res.json();
+  if (!data.ok) { tg.showAlert(data.error || 'Could not load order'); return; }
+  const o = data.order;
+  document.getElementById('odTitle').textContent = o.product_name;
+  document.getElementById('odSub').textContent = `Order #${o.id} · $${o.amount} · ${o.method.toUpperCase()}`;
+  const body = document.getElementById('odBody');
+  body.innerHTML = '';
+  const priceLine = document.createElement('div');
+  priceLine.className = 'detail-line';
+  priceLine.innerHTML = `<span class="k">Price</span><span>$${o.amount}</span>`;
+  body.appendChild(priceLine);
+  const statusLine = document.createElement('div');
+  statusLine.className = 'detail-line';
+  statusLine.innerHTML = `<span class="k">Status</span><span class="status-badge ${statusClass(o.status)}">${STATUS_LABELS[o.status] || o.status}</span>`;
+  body.appendChild(statusLine);
+
+  if (o.customer_email) {
+    const l = document.createElement('div'); l.className = 'detail-line';
+    l.innerHTML = `<span class="k">Email</span><span>${o.customer_email}</span>`; body.appendChild(l);
+  }
+  if (o.customer_code) {
+    const l = document.createElement('div'); l.className = 'detail-line';
+    l.innerHTML = `<span class="k">Code sent</span><span>${o.customer_code}</span>`; body.appendChild(l);
+  }
+  if (o.status === 'delivered' && o.content) {
+    const box = document.createElement('div');
+    box.className = 'code-box';
+    box.textContent = o.content;
+    body.appendChild(box);
+  } else if (o.status === 'processing') {
+    const note = document.createElement('p');
+    note.className = 'sub'; note.style.marginTop = '12px';
+    note.textContent = "We're activating this now — you'll get a message the moment it's ready.";
+    body.appendChild(note);
+  } else if (o.status === 'pending_review' || o.status === 'awaiting_payment') {
+    const note = document.createElement('p');
+    note.className = 'sub'; note.style.marginTop = '12px';
+    note.textContent = 'Your order is awaiting confirmation.';
+    body.appendChild(note);
+  } else if (o.status === 'rejected') {
+    const note = document.createElement('p');
+    note.className = 'sub'; note.style.marginTop = '12px';
+    note.textContent = 'This payment could not be confirmed. Contact support if you believe this is a mistake.';
+    body.appendChild(note);
+  }
+  document.getElementById('orderDetailOverlay').classList.add('show');
+}
 
 document.getElementById('searchInput').addEventListener('input', (e) => {
   searchQuery = e.target.value.trim().toLowerCase();
