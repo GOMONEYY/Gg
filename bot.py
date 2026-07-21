@@ -297,6 +297,14 @@ def update_product_fields(pid, name, description, price, category, active, deliv
     conn.close()
 
 
+def delete_product_hard(pid):
+    conn = db()
+    conn.execute("DELETE FROM stock WHERE product_id=?", (pid,))
+    conn.execute("DELETE FROM products WHERE id=?", (pid,))
+    conn.commit()
+    conn.close()
+
+
 def list_stock_admin(pid):
     conn = db()
     rows = conn.execute("SELECT * FROM stock WHERE product_id=? ORDER BY sold ASC, id DESC", (pid,)).fetchall()
@@ -1012,9 +1020,7 @@ async def handle_admin_products_delete(request):
     body = await request.json()
     if not require_admin(body):
         return web.json_response({"ok": False}, status=403)
-    p = get_product(int(body["id"]))
-    if p:
-        update_product_fields(p["id"], p["name"], p["description"], p["price"], p["category"], 0, p.get("delivery_type", "stock"))
+    delete_product_hard(int(body["id"]))
     return web.json_response({"ok": True})
 
 
