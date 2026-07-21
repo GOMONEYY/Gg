@@ -139,11 +139,11 @@
     <label>Category</label>
     <input id="pfCategory" placeholder="Accounts">
     <label>Delivery method</label>
-    <select id="pfDeliveryType" style="width:100%; background:var(--surface); border:none; color:var(--text); border-radius:12px; padding:12px 13px; font-size:15px;" onchange="updateStockVisibility()">
-      <option value="stock">📦 I provide the account/code (stock)</option>
-      <option value="email">📧 Customer provides email only</option>
-      <option value="email_code">📧🔑 Customer provides email + code</option>
-    </select>
+    <input type="hidden" id="pfDeliveryType" value="stock">
+    <div class="row" id="deliveryTypeRow" style="background:var(--surface-2); border-radius:12px; cursor:pointer;">
+      <div class="row-main"><div class="row-title" id="deliveryTypeLabel">📦 I provide the account/code (stock)</div></div>
+      <div class="chev">›</div>
+    </div>
     <button class="btn" onclick="saveProduct()">Save product</button>
     <div id="noStockNote" class="empty" style="display:none; padding:16px 0 0;">No stock needed — the customer sends their activation details when they buy.</div>
     <div id="stockSection" style="display:none">
@@ -221,6 +221,32 @@ async function loadProducts() {
   });
 }
 
+const DELIVERY_LABELS = {
+  stock: '📦 I provide the account/code (stock)',
+  email: '📧 Customer provides email only',
+  email_code: '📧🔑 Customer provides email + code',
+};
+
+function setDeliveryType(value) {
+  document.getElementById('pfDeliveryType').value = value;
+  document.getElementById('deliveryTypeLabel').textContent = DELIVERY_LABELS[value];
+  updateStockVisibility();
+}
+
+document.getElementById('deliveryTypeRow').onclick = () => {
+  tg.showPopup({
+    title: 'Delivery method',
+    message: 'How is this product delivered to the customer?',
+    buttons: [
+      { id: 'stock', type: 'default', text: 'I provide the account (stock)' },
+      { id: 'email', type: 'default', text: 'Customer provides email only' },
+      { id: 'email_code', type: 'default', text: 'Customer provides email + code' },
+    ]
+  }, (btnId) => {
+    if (btnId) setDeliveryType(btnId);
+  });
+};
+
 function updateStockVisibility() {
   const isStock = document.getElementById('pfDeliveryType').value === 'stock';
   document.getElementById('stockSection').style.display = (editingProductId && isStock) ? 'block' : 'none';
@@ -234,7 +260,7 @@ function openProductForm(p) {
   document.getElementById('pfDesc').value = p ? (p.description || '') : '';
   document.getElementById('pfPrice').value = p ? p.price : '';
   document.getElementById('pfCategory').value = p ? p.category : '';
-  document.getElementById('pfDeliveryType').value = p ? (p.delivery_type || 'stock') : 'stock';
+  setDeliveryType(p ? (p.delivery_type || 'stock') : 'stock');
   document.getElementById('stockSection').style.display = 'none';
   if (p) updateStockVisibility();
   const preview = document.getElementById('pfImagePreview');
