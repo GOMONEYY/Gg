@@ -34,22 +34,35 @@
   .topbar {
     position: sticky; top: 0; z-index: 20; margin: 0 -16px 4px; padding: 14px 16px 10px;
     background: rgba(0,0,0,0.72); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-bottom: 0.5px solid var(--divider);
+    border-bottom: 0.5px solid transparent; transition: border-color 0.2s ease;
   }
-  h1 { font-size: 28px; font-weight: 700; margin: 6px 0 2px; letter-spacing: -0.03em; }
+  .topbar.scrolled { border-bottom-color: var(--divider); }
+  .topbar .compact-title {
+    position: absolute; left: 0; right: 0; top: 12px; text-align: center; font-size: 17px; font-weight: 600;
+    opacity: 0; transition: opacity 0.2s ease; pointer-events: none;
+  }
+  .topbar.scrolled .compact-title { opacity: 1; }
+  .topbar.scrolled .big-title-wrap { opacity: 0; transform: translateY(-6px); max-height: 0; margin-top: -4px; }
+  .big-title-wrap { max-height: 60px; overflow: hidden; transition: opacity 0.2s ease, transform 0.2s ease, max-height 0.25s ease, margin-top 0.25s ease; }
+  h1 { font-size: 30px; font-weight: 750; margin: 6px 0 2px; letter-spacing: -0.03em; }
   .subtitle { color: var(--muted); font-size: 13.5px; margin: 0; letter-spacing: -0.01em; }
 
   .segmented {
-    display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none;
+    position: relative; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none;
     background: var(--surface-2); border-radius: 11px; padding: 3px; margin-top: 14px;
   }
   .segmented::-webkit-scrollbar { display: none; }
   .seg-btn {
-    flex-shrink: 0; background: transparent; color: var(--muted); border: none;
+    flex-shrink: 0; background: transparent; color: var(--muted); border: none; position: relative; z-index: 1;
     border-radius: 8px; padding: 7px 15px; font-size: 13px; font-weight: 590;
-    transition: background 0.2s ease, color 0.2s ease;
+    transition: color 0.2s ease;
   }
-  .seg-btn.active { background: rgba(255,255,255,0.16); color: var(--text); }
+  .seg-btn.active { color: var(--text); }
+  .seg-indicator {
+    position: absolute; top: 3px; bottom: 3px; left: 3px; background: rgba(255,255,255,0.16);
+    border-radius: 8px; transition: transform 0.25s cubic-bezier(.4,0,.2,1), width 0.25s cubic-bezier(.4,0,.2,1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
 
   .eyebrow { font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); margin: 22px 4px 8px; }
 
@@ -129,9 +142,12 @@
 </style>
 </head>
 <body>
-  <div class="topbar">
-    <h1>Store</h1>
-    <p class="subtitle">Digital goods · instant delivery</p>
+  <div class="topbar" id="topbar">
+    <div class="compact-title">Store</div>
+    <div class="big-title-wrap">
+      <h1>Store</h1>
+      <p class="subtitle">Digital goods · instant delivery</p>
+    </div>
     <div class="segmented" id="tabs"></div>
   </div>
 
@@ -202,7 +218,7 @@ async function loadProducts() {
 function renderTabs() {
   const cats = ['All', ...new Set(allProducts.map(p => p.category || 'General'))];
   const tabs = document.getElementById('tabs');
-  tabs.innerHTML = '';
+  tabs.innerHTML = '<div class="seg-indicator" id="segIndicator"></div>';
   cats.forEach(c => {
     const btn = document.createElement('button');
     btn.className = 'seg-btn' + (c === activeCategory ? ' active' : '');
@@ -210,7 +226,21 @@ function renderTabs() {
     btn.onclick = () => { activeCategory = c; renderTabs(); renderGrid(); };
     tabs.appendChild(btn);
   });
+  requestAnimationFrame(moveIndicator);
 }
+
+function moveIndicator() {
+  const tabs = document.getElementById('tabs');
+  const active = tabs.querySelector('.seg-btn.active');
+  const indicator = document.getElementById('segIndicator');
+  if (!active || !indicator) return;
+  indicator.style.width = active.offsetWidth + 'px';
+  indicator.style.transform = `translateX(${active.offsetLeft - 3}px)`;
+}
+
+window.addEventListener('scroll', () => {
+  document.getElementById('topbar').classList.toggle('scrolled', window.scrollY > 40);
+});
 
 function renderGrid() {
   const grid = document.getElementById('grid');
