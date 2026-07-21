@@ -350,6 +350,18 @@ def list_orders_admin(limit=100):
     return [dict(r) for r in rows]
 
 
+def list_orders_for_user(user_id, limit=100):
+    conn = db()
+    rows = conn.execute(
+        """SELECT o.*, p.name AS product_name FROM orders o
+           LEFT JOIN products p ON p.id = o.product_id
+           WHERE o.user_id=? ORDER BY o.id DESC LIMIT ?""",
+        (user_id, limit),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 async def deliver_order(order_id):
     order = get_order(order_id=order_id)
     if not order or order["status"] in ("delivered", "processing"):
@@ -999,6 +1011,56 @@ async def handle_api_confirm(request):
     return web.json_response({"ok": True})
 
 
+async def handle_api_my_orders(request):
+    body = await request.json()
+    user = validate_init_data(body.get("initData", ""))
+    if not user:
+        return web.json_response({"ok": False}, status=403)
+    orders = list_orders_for_user(user["id"])
+    result = [
+        {
+            "id": o["id"],
+            "product_name": o["product_name"] or f"Product #{o['product_id']}",
+            "amount": o["amount"],
+            "method": o["method"],
+            "status": o["status"],
+            "created_at": o["created_at"],
+        }
+        for o in orders
+    ]
+    return web.json_response({"ok": True, "orders": result})
+
+
+async def handle_api_my_order_detail(request):
+    body = await request.json()
+    user = validate_init_data(body.get("initData", ""))
+    if not user:
+        return web.json_response({"ok": False}, status=403)
+    order_id = int(body.get("order_id"))
+    order = get_order(order_id=order_id)
+    if not order or order["user_id"] != user["id"]:
+        return web.json_response({"ok": False, "error": "Order not found"}, status=404)
+    product = get_product(order["product_id"]) or {}
+    detail = {
+        "id": order["id"],
+        "product_name": product.get("name", f"Product #{order['product_id']}"),
+        "amount": order["amount"],
+        "method": order["method"],
+        "status": order["status"],
+        "delivery_type": product.get("delivery_type", "stock"),
+        "customer_email": order["customer_email"],
+        "customer_code": order["customer_code"],
+        "content": None,
+    }
+    if order["status"] == "delivered" and product.get("delivery_type", "stock") == "stock" and order["stock_id"]:
+        conn = db()
+        row = conn.execute("SELECT content FROM stock WHERE id=?", (order["stock_id"],)).fetchone()
+        conn.close()
+        if row:
+            detail["content"] = row["content"]
+    return web.json_response({"ok": True, "order": detail})
+
+
 async def on_startup(app):
     init_db()
     asyncio.create_task(dp.start_polling(bot))
@@ -1166,6 +1228,8 @@ def create_app():
     app.router.add_get("/image/{product_id}", handle_image)
     app.router.add_post("/api/order", handle_api_order)
     app.router.add_post("/api/confirm-payment", handle_api_confirm)
+    app.router.add_post("/api/my-orders", handle_api_my_orders)
+    app.router.add_post("/api/my-orders/detail", handle_api_my_order_detail)
     app.router.add_post("/api/admin/stats", handle_admin_stats)
     app.router.add_post("/api/admin/products/list", handle_admin_products_list)
     app.router.add_post("/api/admin/products/create", handle_admin_products_create)
