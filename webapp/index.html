@@ -8,95 +8,89 @@
 <style>
   :root {
     --bg: #000000;
-    --surface: rgba(28,28,30,0.92);
-    --surface-2: rgba(255,255,255,0.08);
+    --card: #1c1c1e;
+    --pill: rgba(255,255,255,0.14);
     --divider: rgba(255,255,255,0.09);
     --text: #ffffff;
-    --muted: #98989f;
+    --muted: #98989d;
     --blue: #0a84ff;
     --green: #30d158;
     --red: #ff453a;
-    --purple: #bf5af2;
-    --pink: #ff375f;
-    --orange: #ff9f0a;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html { -webkit-font-smoothing: antialiased; }
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-    background: radial-gradient(circle at 50% 0%, #14141a 0%, #000000 55%);
-    background-attachment: fixed;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
     color: var(--text);
-    padding: 0 16px 40px;
-    -webkit-font-smoothing: antialiased;
-  }
-  .topbar {
-    position: sticky; top: 0; z-index: 20; margin: 0 -16px 4px; padding: 14px 16px 10px;
-    background: rgba(0,0,0,0.72); backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-bottom: 0.5px solid transparent; transition: border-color 0.2s ease;
-  }
-  .topbar.scrolled { border-bottom-color: var(--divider); }
-  .topbar .compact-title {
-    position: absolute; left: 0; right: 0; top: 12px; text-align: center; font-size: 17px; font-weight: 600;
-    opacity: 0; transition: opacity 0.2s ease; pointer-events: none;
-  }
-  .topbar.scrolled .compact-title { opacity: 1; }
-  .topbar.scrolled .big-title-wrap { opacity: 0; transform: translateY(-6px); max-height: 0; margin-top: -4px; }
-  .big-title-wrap { max-height: 60px; overflow: hidden; transition: opacity 0.2s ease, transform 0.2s ease, max-height 0.25s ease, margin-top 0.25s ease; }
-  h1 { font-size: 30px; font-weight: 750; margin: 6px 0 2px; letter-spacing: -0.03em; }
-  .subtitle { color: var(--muted); font-size: 13.5px; margin: 0; letter-spacing: -0.01em; }
-
-  .segmented {
-    position: relative; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none;
-    background: var(--surface-2); border-radius: 11px; padding: 3px; margin-top: 14px;
-  }
-  .segmented::-webkit-scrollbar { display: none; }
-  .seg-btn {
-    flex-shrink: 0; background: transparent; color: var(--muted); border: none; position: relative; z-index: 1;
-    border-radius: 8px; padding: 7px 15px; font-size: 13px; font-weight: 590;
-    transition: color 0.2s ease;
-  }
-  .seg-btn.active { color: var(--text); }
-  .seg-indicator {
-    position: absolute; top: 3px; bottom: 3px; left: 3px; background: rgba(255,255,255,0.16);
-    border-radius: 8px; transition: transform 0.25s cubic-bezier(.4,0,.2,1), width 0.25s cubic-bezier(.4,0,.2,1);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    padding: 14px 16px 100px;
   }
 
-  .eyebrow { font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); margin: 22px 4px 8px; }
-
-  .list { background: var(--surface); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 18px; overflow: hidden; box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset; }
-  .row {
-    display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-bottom: 0.5px solid var(--divider);
-    transition: background 0.15s ease;
+  .headerRow { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  h1 { font-size: 34px; font-weight: 800; margin: 0; letter-spacing: -0.02em; }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(145deg,#5e5ce6,#0a84ff);
+    display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0;
   }
+
+  .search-bar {
+    display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 13px;
+    padding: 10px 12px; margin-bottom: 22px;
+  }
+  .search-bar input {
+    border: none; background: transparent; color: var(--text); font-size: 15.5px; flex: 1; outline: none;
+  }
+  .search-bar input::placeholder { color: var(--muted); }
+  .search-bar .icon-glyph { color: var(--muted); font-size: 15px; }
+
+  .section { margin-bottom: 26px; }
+  .section-title { font-size: 21px; font-weight: 800; letter-spacing: -0.01em; margin: 0 2px 10px; }
+
+  .card { background: var(--card); border-radius: 20px; overflow: hidden; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 0.5px solid var(--divider); }
   .row:last-child { border-bottom: none; }
-  .row:active { background: rgba(255,255,255,0.05); }
+  .row:active { background: rgba(255,255,255,0.04); }
 
-  .icon {
-    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; font-size: 20px;
-    object-fit: cover; position: relative; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  .app-icon {
+    width: 54px; height: 54px; border-radius: 14px; flex-shrink: 0; position: relative;
+    display: flex; align-items: center; justify-content: center; font-size: 24px; color: #fff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35); object-fit: cover;
   }
-  .icon .badge-dot { position: absolute; bottom: -2px; right: -2px; width: 13px; height: 13px; border-radius: 50%; border: 2.5px solid #1c1c1e; }
-  .badge-dot.on { background: var(--green); } .badge-dot.off { background: var(--red); }
-
   .row-main { flex: 1; min-width: 0; }
-  .row-title { font-size: 15.5px; font-weight: 590; letter-spacing: -0.01em; }
-  .row-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
-  .row-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-  .price { font-size: 15px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
-  .stock-tag { font-size: 10.5px; color: var(--green); font-weight: 600; }
-  .stock-tag.out { color: var(--red); }
-  .chev { color: var(--muted); font-size: 16px; margin-left: 2px; opacity: 0.6; }
+  .row-title { font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .pill-btn {
+    flex-shrink: 0; background: var(--pill); color: var(--blue); border: none;
+    border-radius: 50px; padding: 7px 16px; font-size: 13.5px; font-weight: 700; min-width: 64px; text-align: center;
+    transition: transform 0.1s ease, background 0.15s ease;
+  }
+  .pill-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.22); }
+  .pill-btn.sold-out { color: var(--muted); }
 
   .empty { text-align: center; color: var(--muted); margin-top: 60px; font-size: 14px; }
 
+  /* floating bottom tab bar */
+  .tabbar {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    display: flex; gap: 6px; background: rgba(28,28,30,0.85); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 0.5px solid rgba(255,255,255,0.08); border-radius: 22px; padding: 8px 10px; z-index: 25;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  }
+  .tab-item {
+    display: flex; flex-direction: column; align-items: center; gap: 2px; background: transparent; border: none;
+    color: var(--muted); padding: 6px 22px; border-radius: 16px; font-size: 10.5px; font-weight: 600;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+  .tab-item .tab-icon { font-size: 20px; }
+  .tab-item.active { color: var(--blue); }
+
+  /* sheets */
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); backdrop-filter: blur(2px); display: none; align-items: flex-end; justify-content: center; z-index: 30; opacity: 0; transition: opacity 0.25s ease; }
   .overlay.show { display: flex; opacity: 1; }
   .sheet {
-    background: rgba(28,28,30,0.88); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%);
+    background: rgba(28,28,30,0.9); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%);
     width: 100%; max-width: 480px; border-radius: 24px 24px 0 0; padding: 10px 18px 30px; max-height: 88vh; overflow-y: auto;
     border: 0.5px solid rgba(255,255,255,0.08); border-bottom: none;
     transform: translateY(100%); transition: transform 0.3s cubic-bezier(.2,.9,.3,1);
@@ -108,26 +102,26 @@
 
   label { display: block; font-size: 12.5px; color: var(--muted); margin: 14px 2px 6px; font-weight: 500; }
   input[type=text], input[type=email] {
-    width: 100%; background: var(--surface-2); border: none; color: var(--text);
+    width: 100%; background: rgba(255,255,255,0.08); border: none; color: var(--text);
     border-radius: 11px; padding: 12px 13px; font-size: 15px;
   }
   input[type=text]:focus, input[type=email]:focus { outline: 2px solid var(--blue); outline-offset: -1px; }
 
   .pay-option {
     display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 8px; text-align: left;
-    background: var(--surface-2); border: none; color: var(--text); border-radius: 14px;
+    background: rgba(255,255,255,0.08); border: none; color: var(--text); border-radius: 14px;
     padding: 14px 14px; font-size: 15px; font-weight: 500; transition: transform 0.1s ease, background 0.15s ease;
   }
-  .pay-option:active { transform: scale(0.98); background: rgba(255,255,255,0.13); }
+  .pay-option:active { transform: scale(0.98); background: rgba(255,255,255,0.14); }
   .close-btn { background: transparent; color: var(--blue); text-align: center; width: 100%; margin-top: 14px; padding: 12px; font-size: 15.5px; font-weight: 590; }
   .close-btn:active { opacity: 0.5; }
 
-  .addr-box { background: var(--surface-2); border-radius: 13px; padding: 13px; margin-top: 10px; font-size: 13px; word-break: break-all; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .addr-box { background: rgba(255,255,255,0.08); border-radius: 13px; padding: 13px; margin-top: 10px; font-size: 13px; word-break: break-all; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   .addr-net { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px; }
   .copy-chip { flex-shrink: 0; background: var(--blue); color: #fff; border: none; border-radius: 9px; padding: 7px 13px; font-size: 12.5px; font-weight: 600; transition: transform 0.1s ease; }
   .copy-chip:active { transform: scale(0.92); }
 
-  .proof-picker { display: flex; align-items: center; gap: 10px; background: var(--surface-2); border-radius: 13px; padding: 12px; margin-top: 14px; }
+  .proof-picker { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.08); border-radius: 13px; padding: 12px; margin-top: 14px; }
   .proof-picker img { width: 42px; height: 42px; border-radius: 9px; object-fit: cover; }
   .proof-picker .placeholder { width: 42px; height: 42px; border-radius: 9px; background: rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; font-size:19px; }
   .proof-picker label { margin: 0; flex: 1; font-size: 14px; color: var(--blue); font-weight: 500; }
@@ -142,25 +136,22 @@
 </style>
 </head>
 <body>
-  <div class="topbar" id="topbar">
-    <div class="compact-title">Store</div>
-    <div class="big-title-wrap">
-      <h1>Store</h1>
-      <p class="subtitle">Digital goods · instant delivery</p>
-    </div>
-    <div class="segmented" id="tabs"></div>
+  <div class="headerRow">
+    <h1>Store</h1>
+    <div class="avatar" id="avatarBtn">🛍️</div>
   </div>
 
-  <div id="grid" class="list" style="margin-top:14px"></div>
-  <div id="empty" class="empty" style="display:none">No products available right now</div>
+  <div class="search-bar">
+    <span class="icon-glyph">🔍</span>
+    <input type="text" id="searchInput" placeholder="Search products">
+  </div>
 
-  <p class="eyebrow">Help</p>
-  <div class="list">
-    <div class="row" id="supportRow" style="cursor:pointer">
-      <div class="icon" style="background:var(--pink)">🆘</div>
-      <div class="row-main"><div class="row-title">Support</div><div class="row-sub">Contact us for help</div></div>
-      <div class="chev">›</div>
-    </div>
+  <div id="sections"></div>
+  <div id="empty" class="empty" style="display:none">No products found</div>
+
+  <div class="tabbar">
+    <button class="tab-item active" id="tabStore"><span class="tab-icon">🏬</span>Store</button>
+    <button class="tab-item" id="tabSupport"><span class="tab-icon">🆘</span>Support</button>
   </div>
 
   <div id="overlay" class="overlay">
@@ -198,82 +189,90 @@ tg.ready();
 tg.expand();
 
 let allProducts = [];
-let activeCategory = 'All';
 let currentProduct = null;
 let currentOrder = null;
 let proofBase64 = null;
+let searchQuery = '';
 
-document.getElementById('supportRow').onclick = () => tg.openTelegramLink('https://t.me/No111x');
+document.getElementById('avatarBtn').onclick = () => tg.openTelegramLink('https://t.me/No111x');
+document.getElementById('tabSupport').onclick = () => tg.openTelegramLink('https://t.me/No111x');
+document.getElementById('tabStore').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-const ICONS = ['🛒','💾','🔑','🎮','📀','🖥️'];
-const COLORS = ['var(--blue)','var(--purple)','var(--orange)','var(--pink)','var(--green)'];
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  searchQuery = e.target.value.trim().toLowerCase();
+  renderSections();
+});
+
+const GRADIENTS = [
+  'linear-gradient(145deg,#ff9f0a,#ff375f)',
+  'linear-gradient(145deg,#0a84ff,#5e5ce6)',
+  'linear-gradient(145deg,#30d158,#0a84ff)',
+  'linear-gradient(145deg,#bf5af2,#ff375f)',
+  'linear-gradient(145deg,#ffd60a,#ff9f0a)',
+  'linear-gradient(145deg,#64d2ff,#5e5ce6)',
+];
+function gradientFor(seed) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return GRADIENTS[h % GRADIENTS.length];
+}
 
 async function loadProducts() {
   const res = await fetch('/api/products');
   allProducts = await res.json();
-  renderTabs();
-  renderGrid();
+  renderSections();
 }
 
-function renderTabs() {
-  const cats = ['All', ...new Set(allProducts.map(p => p.category || 'General'))];
-  const tabs = document.getElementById('tabs');
-  tabs.innerHTML = '<div class="seg-indicator" id="segIndicator"></div>';
-  cats.forEach(c => {
-    const btn = document.createElement('button');
-    btn.className = 'seg-btn' + (c === activeCategory ? ' active' : '');
-    btn.textContent = c;
-    btn.onclick = () => { activeCategory = c; renderTabs(); renderGrid(); };
-    tabs.appendChild(btn);
-  });
-  requestAnimationFrame(moveIndicator);
-}
-
-function moveIndicator() {
-  const tabs = document.getElementById('tabs');
-  const active = tabs.querySelector('.seg-btn.active');
-  const indicator = document.getElementById('segIndicator');
-  if (!active || !indicator) return;
-  indicator.style.width = active.offsetWidth + 'px';
-  indicator.style.transform = `translateX(${active.offsetLeft - 3}px)`;
-}
-
-window.addEventListener('scroll', () => {
-  document.getElementById('topbar').classList.toggle('scrolled', window.scrollY > 40);
-});
-
-function renderGrid() {
-  const grid = document.getElementById('grid');
+function renderSections() {
+  const container = document.getElementById('sections');
   const empty = document.getElementById('empty');
-  const products = activeCategory === 'All' ? allProducts : allProducts.filter(p => (p.category || 'General') === activeCategory);
-  grid.innerHTML = '';
-  if (!products.length) { empty.style.display = 'block'; grid.style.display = 'none'; return; }
-  empty.style.display = 'none'; grid.style.display = 'block';
-  products.forEach((p, i) => {
-    const isStock = (p.delivery_type || 'stock') === 'stock';
-    const out = isStock && p.available <= 0;
-    const row = document.createElement('div');
-    row.className = 'row';
-    if (!out) row.style.cursor = 'pointer';
-    const iconInner = p.has_image
-      ? `<img class="icon" src="/image/${p.id}" alt=""><span class="badge-dot ${out ? 'off' : 'on'}" style="position:absolute"></span>`
-      : `<div class="icon" style="background:${COLORS[i % COLORS.length]}">${ICONS[i % ICONS.length]}<span class="badge-dot ${out ? 'off' : 'on'}"></span></div>`;
-    const stockLabel = isStock ? (out ? 'Out of stock' : p.available + ' available') : 'Available';
-    row.innerHTML = `
-      ${iconInner}
-      <div class="row-main">
-        <div class="row-title">${p.name}</div>
-        <div class="row-sub">${p.description || ''}</div>
-      </div>
-      <div class="row-right">
-        <div class="price">$${p.price}</div>
-        <div class="stock-tag ${out ? 'out' : ''}">${stockLabel}</div>
-      </div>
-      ${out ? '' : '<div class="chev">›</div>'}
-    `;
-    if (!out) row.onclick = () => openSheet(p);
-    grid.appendChild(row);
+  container.innerHTML = '';
+
+  let filtered = allProducts;
+  if (searchQuery) {
+    filtered = allProducts.filter(p =>
+      p.name.toLowerCase().includes(searchQuery) || (p.description || '').toLowerCase().includes(searchQuery)
+    );
+  }
+  if (!filtered.length) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  const categories = [...new Set(filtered.map(p => p.category || 'General'))];
+  categories.forEach(cat => {
+    const items = filtered.filter(p => (p.category || 'General') === cat);
+    const section = document.createElement('div');
+    section.className = 'section';
+    const card = document.createElement('div');
+    card.className = 'card';
+    items.forEach(p => card.appendChild(buildRow(p)));
+    section.innerHTML = `<div class="section-title">${cat}</div>`;
+    section.appendChild(card);
+    container.appendChild(section);
   });
+}
+
+function buildRow(p) {
+  const isStock = (p.delivery_type || 'stock') === 'stock';
+  const out = isStock && p.available <= 0;
+  const row = document.createElement('div');
+  row.className = 'row';
+  const iconStyle = p.has_image ? '' : `background:${gradientFor(p.name)}`;
+  const iconContent = p.has_image ? `<img class="app-icon" src="/image/${p.id}" alt="">` : `<div class="app-icon" style="${iconStyle}">🔑</div>`;
+  row.innerHTML = `
+    ${iconContent}
+    <div class="row-main">
+      <div class="row-title">${p.name}</div>
+      <div class="row-sub">${p.description || ''}</div>
+    </div>
+    <button class="pill-btn ${out ? 'sold-out' : ''}">${out ? 'Sold out' : '$' + p.price}</button>
+  `;
+  if (!out) {
+    const btn = row.querySelector('.pill-btn');
+    btn.onclick = (e) => { e.stopPropagation(); openSheet(p); };
+    row.onclick = () => openSheet(p);
+    row.style.cursor = 'pointer';
+  }
+  return row;
 }
 
 function openSheet(p) {
@@ -351,33 +350,57 @@ document.getElementById('proofInput').addEventListener('change', (e) => {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
-    proofBase64 = reader.result.split(',')[1];
-    document.getElementById('proofPreview').src = reader.result;
-    document.getElementById('proofPreview').style.display = 'block';
-    document.getElementById('proofPlaceholder').style.display = 'none';
-    document.getElementById('confirmBtn').disabled = false;
-    tg.HapticFeedback && tg.HapticFeedback.impactOccurred('light');
+    const img = new Image();
+    img.onload = () => {
+      const maxDim = 1280;
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.72);
+      proofBase64 = compressedDataUrl.split(',')[1];
+      document.getElementById('proofPreview').src = compressedDataUrl;
+      document.getElementById('proofPreview').style.display = 'block';
+      document.getElementById('proofPlaceholder').style.display = 'none';
+      document.getElementById('confirmBtn').disabled = false;
+      tg.HapticFeedback && tg.HapticFeedback.impactOccurred('light');
+    };
+    img.src = reader.result;
   };
   reader.readAsDataURL(file);
 });
 
 async function confirmPaid() {
   if (!currentOrder || !proofBase64) return;
-  document.getElementById('confirmBtn').disabled = true;
-  document.getElementById('confirmBtn').textContent = 'Sending...';
-  const res = await fetch('/api/confirm-payment', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ initData: tg.initData, order_id: currentOrder, proof_base64: proofBase64 })
-  });
-  const data = await res.json();
-  closeSheet('payOverlay');
-  document.getElementById('confirmBtn').textContent = 'I have paid';
-  if (!data.ok) { tg.showAlert(data.error || 'Could not submit payment'); return; }
-  tg.HapticFeedback && tg.HapticFeedback.notificationOccurred('success');
-  tg.showAlert('Your order was sent for review — it will be delivered within minutes.');
+  const btn = document.getElementById('confirmBtn');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  try {
+    const res = await fetch('/api/confirm-payment', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: tg.initData, order_id: currentOrder, proof_base64: proofBase64 })
+    });
+    if (!res.ok) throw new Error('Server error (' + res.status + ')');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Could not submit payment');
+    closeSheet('payOverlay');
+    tg.HapticFeedback && tg.HapticFeedback.notificationOccurred('success');
+    tg.showAlert('Your order was sent for review — it will be delivered within minutes.');
+  } catch (err) {
+    tg.showAlert('Something went wrong sending your payment proof: ' + err.message + '. Please try again.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'I have paid';
+  }
 }
 
 loadProducts();
 </script>
+
 </body>
 </html>
