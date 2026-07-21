@@ -109,6 +109,7 @@ def init_db():
         );
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
+            username TEXT,
             first_seen TEXT
         );
         """
@@ -120,6 +121,8 @@ def init_db():
         "ALTER TABLE orders ADD COLUMN customer_email TEXT",
         "ALTER TABLE orders ADD COLUMN customer_code TEXT",
         "ALTER TABLE orders ADD COLUMN payment_proof_file_id TEXT",
+        "ALTER TABLE orders ADD COLUMN customer_username TEXT",
+        "ALTER TABLE users ADD COLUMN username TEXT",
     ):
         try:
             conn.execute(stmt)
@@ -137,11 +140,12 @@ def init_db():
 # ------------------------------------------------------------------
 # Users (for broadcasting new products)
 # ------------------------------------------------------------------
-def register_user(user_id):
+def register_user(user_id, username=None):
     conn = db()
     conn.execute(
-        "INSERT OR IGNORE INTO users (user_id, first_seen) VALUES (?,?)",
-        (user_id, datetime.utcnow().isoformat()),
+        "INSERT INTO users (user_id, username, first_seen) VALUES (?,?,?) "
+        "ON CONFLICT(user_id) DO UPDATE SET username=excluded.username",
+        (user_id, username, datetime.utcnow().isoformat()),
     )
     conn.commit()
     conn.close()
@@ -152,6 +156,13 @@ def get_all_user_ids():
     rows = conn.execute("SELECT user_id FROM users").fetchall()
     conn.close()
     return [r["user_id"] for r in rows]
+
+
+def count_users():
+    conn = db()
+    n = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    conn.close()
+    return n
 
 
 async def broadcast_new_product(product):
@@ -210,14 +221,14 @@ def mark_stock_sold(stock_id):
 
 
 def create_order(user_id, product_id, stock_id, amount, method, invoice_id=None, status="pending",
-                  customer_email=None, customer_code=None):
+                  customer_email=None, customer_code=None, customer_username=None):
     conn = db()
     cur = conn.execute(
         """INSERT INTO orders (user_id, product_id, stock_id, amount, method, status, invoice_id, created_at,
-                                customer_email, customer_code)
-           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                                customer_email, customer_code, customer_username)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
         (user_id, product_id, stock_id, amount, method, status, invoice_id, datetime.utcnow().isoformat(),
-         customer_email, customer_code),
+         customer_email, customer_code, customer_username),
     )
     conn.commit()
     oid = cur.lastrowid
@@ -260,7 +271,7 @@ def admin_stats():
         "SELECT COALESCE(SUM(amount),0) FROM orders WHERE status='delivered' AND created_at LIKE ?", (f"{today}%",)
     ).fetchone()[0]
     conn.close()
-    return {"orders_today": orders_today, "revenue_today": round(revenue_today, 2)}
+    return {"orders_today": orders_today, "revenue_today": round(revenue_today, 2), "subscribers": count_users()}
 
 
 def list_all_products_admin():
@@ -341,23 +352,31 @@ def list_orders_admin(limit=100):
 
 async def deliver_order(order_id):
     order = get_order(order_id=order_id)
-    if not order or order["status"] == "delivered":
+    if not order or order["status"] in ("delivered", "processing"):
         return
     product = get_product(order["product_id"])
     dtype = product.get("delivery_type", "stock")
 
     if dtype in ("email", "email_code"):
-        set_order_status(order_id, "delivered")
+        set_order_status(order_id, "processing")
         detail = f"📧 Activate on: <code>{order['customer_email']}</code>"
         if dtype == "email_code":
             detail += f"\n🔑 Code/password: <code>{order['customer_code']}</code>"
         await bot.send_message(
             order["user_id"],
             f"✅ Payment confirmed!\n\n<b>{product['name']}</b>\n\n"
-            f"Your activation is being processed and will be completed shortly using the details you provided. "
+            f"We're activating it now using the details you provided — we'll message you the moment it's ready. "
             f"Contact support if you don't hear back soon.",
         )
-        await bot.send_message(ADMIN_ID, f"💰 Order #{order_id} completed — {product['name']} — {order['amount']}$\n{detail}")
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✅ Mark activation complete", callback_data=f"admin_activate:{order_id}")
+        ]])
+        await bot.send_message(
+            ADMIN_ID,
+            f"⏳ Order #{order_id} paid — {product['name']} — {order['amount']}$\n{detail}\n\n"
+            f"Once you've activated it on this email, tap the button below to notify the customer.",
+            reply_markup=kb,
+        )
         return
 
     stock_id = order["stock_id"]
@@ -378,6 +397,19 @@ async def deliver_order(order_id):
         f"✅ Payment successful!\n\n<b>{product['name']}</b>\n\n📦 Your order content:\n<code>{stock_row['content']}</code>\n\nThank you for shopping with us 🌟",
     )
     await bot.send_message(ADMIN_ID, f"💰 New order completed #{order_id} — {product['name']} — {order['amount']}$")
+
+
+async def complete_activation(order_id):
+    order = get_order(order_id=order_id)
+    if not order or order["status"] == "delivered":
+        return
+    product = get_product(order["product_id"])
+    set_order_status(order_id, "delivered")
+    await bot.send_message(
+        order["user_id"],
+        f"✅ Activation complete!\n\n<b>{product['name']}</b> is now active. Enjoy, and thank you for shopping with us 🌟",
+    )
+    await bot.send_message(ADMIN_ID, f"✅ Order #{order_id} marked as activated — customer notified.")
 
 
 # ------------------------------------------------------------------
@@ -427,7 +459,7 @@ def payment_kb(product_id):
 # ------------------------------------------------------------------
 @router.message(CommandStart())
 async def start_handler(message: Message):
-    register_user(message.from_user.id)
+    register_user(message.from_user.id, message.from_user.username)
     await message.answer(
         "👋 Welcome to our store!\n\nBrowse products and buy accounts & software codes, paying via:\n"
         "💵 USDT\n🟡 Binance Pay",
@@ -517,7 +549,8 @@ async def start_purchase(callback: CallbackQuery, state: FSMContext, method: str
         await callback.message.answer("📧 Please send the email address you'd like this activated on:")
         await callback.answer()
         return
-    order_id = create_order(callback.from_user.id, product_id, None, product["price"], method, status="awaiting_payment")
+    order_id = create_order(callback.from_user.id, product_id, None, product["price"], method, status="awaiting_payment",
+                             customer_username=callback.from_user.username)
     await send_payment_instructions(callback.message, product, order_id, method)
     await callback.answer()
 
@@ -537,7 +570,7 @@ async def buy_email_received(message: Message, state: FSMContext):
     product = get_product(data["product_id"])
     order_id = create_order(
         message.from_user.id, data["product_id"], None, product["price"], data["method"],
-        status="awaiting_payment", customer_email=email,
+        status="awaiting_payment", customer_email=email, customer_username=message.from_user.username,
     )
     await state.clear()
     await send_payment_instructions(message, product, order_id, data["method"])
@@ -551,6 +584,7 @@ async def buy_code_received(message: Message, state: FSMContext):
     order_id = create_order(
         message.from_user.id, data["product_id"], None, product["price"], data["method"],
         status="awaiting_payment", customer_email=data["email"], customer_code=code,
+        customer_username=message.from_user.username,
     )
     await state.clear()
     await send_payment_instructions(message, product, order_id, data["method"])
@@ -619,9 +653,10 @@ async def send_order_for_review(order_id):
         extra += f"\n📧 Email: {order['customer_email']}"
     if order["customer_code"]:
         extra += f"\n🔑 Code: {order['customer_code']}"
+    customer_line = f"@{order['customer_username']}" if order.get("customer_username") else f"ID {order['user_id']}"
     caption = (
         f"🔔 New {order['method'].upper()} order #{order_id}\nProduct: {product['name']}\nAmount: {order['amount']}$"
-        f"{extra}\nCustomer: <a href='tg://user?id={order['user_id']}'>{order['user_id']}</a>"
+        f"{extra}\nCustomer: <a href='tg://user?id={order['user_id']}'>{customer_line}</a>"
     )
     if order.get("payment_proof_file_id"):
         await bot.send_photo(ADMIN_ID, photo=order["payment_proof_file_id"], caption=caption, reply_markup=kb)
@@ -639,11 +674,30 @@ async def admin_confirm_cb(callback: CallbackQuery):
         return
     order_id = int(callback.data.split(":")[1])
     await deliver_order(order_id)
+    order = get_order(order_id=order_id)
+    note = "\n\n✅ Confirmed and delivered." if order and order["status"] == "delivered" else "\n\n⏳ Confirmed — activating now (see next message)."
     try:
         if callback.message.text:
-            await callback.message.edit_text(callback.message.text + "\n\n✅ Confirmed and delivered.")
+            await callback.message.edit_text(callback.message.text + note)
         else:
-            await callback.message.edit_caption(caption=(callback.message.caption or "") + "\n\n✅ Confirmed and delivered.")
+            await callback.message.edit_caption(caption=(callback.message.caption or "") + note)
+    except Exception:
+        pass
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin_activate:"))
+async def admin_activate_cb(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Not authorized", show_alert=True)
+        return
+    order_id = int(callback.data.split(":")[1])
+    await complete_activation(order_id)
+    try:
+        if callback.message.text:
+            await callback.message.edit_text(callback.message.text + "\n\n✅ Activation completed, customer notified.")
+        else:
+            await callback.message.edit_caption(caption=(callback.message.caption or "") + "\n\n✅ Activation completed, customer notified.")
     except Exception:
         pass
     await callback.answer()
@@ -888,7 +942,7 @@ async def handle_api_order(request):
     user = validate_init_data(init_data)
     if not user:
         return web.json_response({"ok": False, "error": "Invalid Telegram data"}, status=403)
-    register_user(user["id"])
+    register_user(user["id"], user.get("username"))
     product_id = int(body.get("product_id"))
     method = body.get("method")
     product = get_product(product_id)
@@ -910,7 +964,8 @@ async def handle_api_order(request):
         return web.json_response({"ok": False, "error": "Unknown payment method"}, status=400)
 
     order_id = create_order(user["id"], product_id, None, product["price"], method,
-                             status="awaiting_payment", customer_email=email, customer_code=code)
+                             status="awaiting_payment", customer_email=email, customer_code=code,
+                             customer_username=user.get("username"))
     if method == "usdt":
         return web.json_response({"ok": True, "order_id": order_id, "usdt_addresses": {
             "trc20": USDT_TRC20, "bep20": USDT_BEP20, "erc20": USDT_ERC20
@@ -1064,6 +1119,14 @@ async def handle_admin_orders_confirm(request):
     return web.json_response({"ok": True})
 
 
+async def handle_admin_orders_activate(request):
+    body = await request.json()
+    if not require_admin(body):
+        return web.json_response({"ok": False}, status=403)
+    await complete_activation(int(body["order_id"]))
+    return web.json_response({"ok": True})
+
+
 async def handle_admin_orders_reject(request):
     body = await request.json()
     if not require_admin(body):
@@ -1096,7 +1159,7 @@ async def handle_admin_products_image(request):
 
 
 def create_app():
-    app = web.Application()
+    app = web.Application(client_max_size=15 * 1024 * 1024)
     app.router.add_get("/", handle_index)
     app.router.add_get("/admin", handle_admin_index)
     app.router.add_get("/api/products", handle_api_products)
@@ -1114,6 +1177,7 @@ def create_app():
     app.router.add_post("/api/admin/stock/delete", handle_admin_stock_delete)
     app.router.add_post("/api/admin/orders/list", handle_admin_orders_list)
     app.router.add_post("/api/admin/orders/confirm", handle_admin_orders_confirm)
+    app.router.add_post("/api/admin/orders/activate", handle_admin_orders_activate)
     app.router.add_post("/api/admin/orders/reject", handle_admin_orders_reject)
     app.router.add_static("/static/", os.path.join(os.path.dirname(__file__), "webapp"))
     app.on_startup.append(on_startup)
